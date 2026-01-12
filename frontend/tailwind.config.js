@@ -51,7 +51,7 @@ export default {
         'aurora-wave': 'aurora-wave 55s ease-in-out infinite',
         'aurora-float': 'aurora-float 65s ease-in-out infinite',
         'aurora-pulse': 'aurora-pulse 8s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        
+
         // Transform animations
         'translate-diagonal': 'translate-diagonal 50s ease-in-out infinite',
         'translate-diagonal-reverse': 'translate-diagonal 55s ease-in-out infinite reverse',
@@ -59,7 +59,7 @@ export default {
         'translate-horizontal-reverse': 'translate-horizontal 52s ease-in-out infinite reverse',
         'translate-vertical': 'translate-vertical 45s ease-in-out infinite',
         'translate-vertical-reverse': 'translate-vertical 54s ease-in-out infinite reverse',
-        
+
         // Modern animations
         'shimmer': 'shimmer 2s infinite',
         'gradient-shift': 'gradient-shift 8s ease infinite',
@@ -71,6 +71,7 @@ export default {
         'fade-in-down': 'fade-in-down 0.6s ease-out',
         'slide-in-right': 'slide-in-right 0.5s ease-out',
         'slide-in-left': 'slide-in-left 0.5s ease-out',
+        blob: "blob 7s infinite",
       },
       keyframes: {
         // Aurora keyframes
@@ -94,7 +95,7 @@ export default {
           '0%, 100%': { opacity: '1' },
           '50%': { opacity: '0.8' },
         },
-        
+
         // Transform keyframes
         'translate-diagonal': {
           '0%': { transform: 'translate3d(0%, 0%, 0) scale(1)' },
@@ -111,7 +112,7 @@ export default {
           '50%': { transform: 'translate3d(0%, 3%, 0) scale(1.02)' },
           '100%': { transform: 'translate3d(0%, -2%, 0) scale(1)' },
         },
-        
+
         // Modern keyframes
         'shimmer': {
           '0%': { backgroundPosition: '-1000px 0' },
@@ -174,6 +175,20 @@ export default {
             transform: 'translateX(0)',
           },
         },
+        blob: {
+          "0%": {
+            transform: "translate(0px, 0px) scale(1)",
+          },
+          "33%": {
+            transform: "translate(30px, -50px) scale(1.1)",
+          },
+          "66%": {
+            transform: "translate(-20px, 20px) scale(0.9)",
+          },
+          "100%": {
+            transform: "translate(0px, 0px) scale(1)",
+          },
+        },
       },
       backgroundImage: {
         // Gradient presets
@@ -202,5 +217,21 @@ export default {
       },
     },
   },
-  plugins: [require('tailwindcss/plugin')],
+  plugins: [
+    require('tailwindcss/plugin'),
+    function ({ matchUtilities, theme }) {
+      matchUtilities(
+        {
+          "animation-delay": (value) => {
+            return {
+              "animation-delay": value,
+            };
+          },
+        },
+        {
+          values: theme("transitionDelay"),
+        }
+      );
+    },
+  ],
 }
