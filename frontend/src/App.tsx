@@ -19,14 +19,17 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { canAccessGarbageBin } from './utils/permissions';
 import Lenis from 'lenis';
 
+import { BackgroundAnimation } from './components/ui/BackgroundAnimation';
+
 function MainLayout({ children }: { children: ReactNode }) {
   const { logout, user } = useAuth();
   const location = useLocation();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-orange-50">
+    <div className="min-h-screen relative overflow-hidden bg-gray-50/50">
+      <BackgroundAnimation />
       <Navbar currentPath={location.pathname} onLogout={logout} user={user} />
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-8 relative z-10">
         {children}
       </main>
       <Footer />
