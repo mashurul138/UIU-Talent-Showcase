@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  viewer
+  creator
+  admin
+}
+
+enum PostType {
+  video
+  audio
+  blog
+}
+
+enum PostStatus {
+  pending
+  approved
+  rejected
+}
+
+enum InteractionType {
+  view
+  like
+  rating
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  name         String
+  role         Role     @default(viewer)
+  studentId    String?  @unique @map("student_id")
+  avatarUrl    String?  @map("avatar_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+  lastLogin    DateTime @default(now()) @map("last_login")
+
+  posts          Post[]           @relation("UserPosts")
+  interactions   Interaction[]    @relation("UserInteractions")
+  comments       Comment[]
+  refreshTokens  RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Post {
+  id            String     @id @default(uuid())
+  authorId      String     @map("author_id")
+  type          PostType
+  title         String
+  description   String     @db.Text
+  mediaUrl      String     @map("media_url")
+  thumbnailUrl  String?    @map("thumbnail_url")
+  status        PostStatus @default(pending)
+  views         Int        @default(0)
+  rating        Float      @default(0)
+  duration      Int?
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+  isDeleted     Boolean    @default(false) @map("is_deleted")
+  deletedAt     DateTime?  @map("deleted_at")
+  deletionReason String?   @map("deletion_reason")
+
+  author       User          @relation("UserPosts", fields: [authorId], references: [id])
+  interactions Interaction[]
+  comments     Comment[]
+
+  @@map("posts")
+}
+
+model Interaction {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  postId    String           @map("post_id")
+  type      InteractionType
+  value     Int?
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user User @relation("UserInteractions", fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId, type])
+  @@map("interactions")
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  postId    String   @map("post_id")
+  userId    String   @map("user_id")
+  content   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("comments")
+}

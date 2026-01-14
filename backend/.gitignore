@@ -1,0 +1,49 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Prisma
+.prisma/
+generated/
+prisma/migrations/*
+!prisma/migrations/.gitkeep
+
+# Build
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# Backup files
+*.bak
+*.backup
+*.swp
+
+# Dependencies lock files (optional - include for reproducible builds)
+# package-lock.json
+# yarn.lock
+
+# OS specific
+.DS_Store
+Thumbs.db
