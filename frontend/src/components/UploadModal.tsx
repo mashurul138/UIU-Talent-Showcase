@@ -16,11 +16,12 @@ export function UploadModal({ isOpen, onClose, initialType = 'video' }: UploadMo
 
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
-    const [link, setLink] = useState(''); // Mock file upload
+    const [file, setFile] = useState<File | null>(null);
     const [duration, setDuration] = useState('');
     const [type, setType] = useState(initialType);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     // Theme mapping
     const themeStyles = {
@@ -70,8 +71,8 @@ export function UploadModal({ isOpen, onClose, initialType = 'video' }: UploadMo
             setType(initialType);
             setTitle('');
             setDescription('');
-            setLink('');
             setDuration('');
+            setFile(null);
             setSuccess(false);
             setIsSubmitting(false);
         }
@@ -81,24 +82,23 @@ export function UploadModal({ isOpen, onClose, initialType = 'video' }: UploadMo
 
     const modalRoot = document.getElementById('modal-root') || document.body;
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user) return;
+        if (!user || !file) return;
 
         setIsSubmitting(true);
+        setError(null);
 
-        // Simulate upload delay
-        setTimeout(() => {
-            addPost({
+        try {
+            await addPost({
                 title,
                 authorId: user.id,
                 authorName: user.name,
                 authorRole: user.role,
                 type,
-                thumbnail: `https://images.unsplash.com/photo-${type === 'video' ? '1498050108023-c5249f4df085' : type === 'audio' ? '1478737270239-2f02b77fc618' : '1486312338219-ce68d2c6f44d'}?w=400`,
                 description,
-                link,
-                duration: (type === 'video' || type === 'audio') ? (duration || '10:00') : undefined,
+                duration,
+                file: file
             });
 
             setIsSubmitting(false);
@@ -108,7 +108,11 @@ export function UploadModal({ isOpen, onClose, initialType = 'video' }: UploadMo
             setTimeout(() => {
                 onClose();
             }, 2000);
-        }, 1500);
+        } catch (error: any) {
+            console.error("Failed to upload", error);
+            setIsSubmitting(false);
+            setError(error.message || "Failed to upload post. Please try again.");
+        }
     };
 
     return createPortal(
@@ -156,6 +160,14 @@ export function UploadModal({ isOpen, onClose, initialType = 'video' }: UploadMo
                         </div>
                     ) : (
                         <form onSubmit={handleSubmit} className="space-y-4">
+
+                            {/* Error Message */}
+                            {error && (
+                                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2 text-red-600 dark:text-red-400 text-sm animate-in fade-in slide-in-from-top-1">
+                                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                                    <p>{error}</p>
+                                </div>
+                            )}
 
                             {/* Type Selection */}
                             {/* Type Selection - Horizontal Icon Grid */}
@@ -207,16 +219,31 @@ export function UploadModal({ isOpen, onClose, initialType = 'video' }: UploadMo
                                 />
                             </div>
 
-                            {/* Link / File Mock */}
+                            {/* File Upload */}
                             <div>
-                                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Content URL / File</label>
+                                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Upload {type === 'blog' ? 'Header Image' : 'Media File'}</label>
                                 <input
-                                    type="text" // Simplified for mock
+                                    type="file"
                                     required
-                                    value={link}
-                                    onChange={(e) => setLink(e.target.value)}
+                                    onChange={(e) => {
+                                        const file = e.target.files ? e.target.files[0] : null;
+                                        setFile(file);
+
+                                        if (file && (type === 'video' || type === 'audio')) {
+                                            const url = URL.createObjectURL(file);
+                                            const media = document.createElement(type === 'video' ? 'video' : 'audio');
+                                            media.src = url;
+                                            media.onloadedmetadata = () => {
+                                                const minutes = Math.floor(media.duration / 60);
+                                                const seconds = Math.floor(media.duration % 60);
+                                                const formatted = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                                                setDuration(formatted);
+                                                URL.revokeObjectURL(url);
+                                            };
+                                        }
+                                    }}
                                     className={`w-full px-4 py-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 focus:ring-2 ${s.ring} focus:border-transparent outline-none transition-all`}
-                                    placeholder="Paste a link or 'upload' URL..."
+                                    accept={type === 'video' ? 'video/*' : type === 'audio' ? 'audio/*' : 'image/*'}
                                 />
                             </div>
 
