@@ -18,10 +18,18 @@ export function Login() {
     setError('');
 
     try {
-      login(email, password);
+      await login(email, password);
+      // Wait a brief moment to allow state updates to propagate if needed, 
+      // though await should be sufficient if context updates are synchronous after await.
       navigate('/');
-    } catch (err) {
-      setError('Invalid email or password');
+    } catch (err: any) {
+      console.error("Login Error Details:", err);
+      // Check if it's a network error (backend connection failed)
+      if (err.message && err.message.includes('Failed to fetch')) {
+        setError('Cannot connect to server. Is the backend running?');
+      } else {
+        setError(err.message || 'Invalid email or password');
+      }
     }
   };
 
