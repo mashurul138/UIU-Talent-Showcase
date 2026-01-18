@@ -2,13 +2,13 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Play, Pause, Volume2, VolumeX, Maximize, Settings, SkipBack, SkipForward, ChevronLeft, Star } from 'lucide-react';
 import { usePosts } from '../contexts/PostContext';
-import type { Post } from '../types/auth';
+import { api } from '../services/api';
 
 type QualityOption = '1080p' | '720p' | '480p' | '360p';
 
 export function VideoWatchPage() {
     const { id } = useParams();
-    const { posts } = usePosts();
+    const { posts, updatePostViews } = usePosts();
 
     // Derive video directly to avoid first-render null state
     const video = useMemo(() => {
@@ -54,6 +54,16 @@ export function VideoWatchPage() {
             videoEl.removeEventListener('ended', handleEnded);
         };
     }, [video]);
+
+    // Increment view count on mount
+    useEffect(() => {
+        if (id && video) {
+            // Fire and forget, but update local state on success
+            api.posts.incrementView(id).then(data => {
+                updatePostViews(id, data.views);
+            }).catch(console.error);
+        }
+    }, [id]); // Only run on mount/id change
 
     useEffect(() => {
         let controlsTimeout: NodeJS.Timeout;
@@ -199,8 +209,7 @@ export function VideoWatchPage() {
                     >
                         <video
                             ref={videoRef}
-                            src={video.thumbnail}
-                            poster={video.thumbnail}
+                            src={!video.thumbnail ? '' : (video.thumbnail.startsWith('http') ? video.thumbnail : `http://localhost:8000/${video.thumbnail}`)}
                             className="w-full h-full object-contain"
                             onClick={togglePlay}
                         />
@@ -348,7 +357,7 @@ export function VideoWatchPage() {
                             <div className="flex items-center gap-6">
                                 <div className="flex items-center gap-1 text-orange-500">
                                     <Star className="w-5 h-5 fill-current" />
-                                    <span className="font-bold">{video.rating}</span>
+                                    <span className="font-bold">{video.votes}</span>
                                 </div>
                                 <div className="text-gray-500">{video.views.toLocaleString()} views</div>
                             </div>
@@ -372,8 +381,18 @@ export function VideoWatchPage() {
                                     to={`/video/${v.id}`}
                                     className="flex gap-3 group"
                                 >
-                                    <div className="w-40 h-24 rounded-lg overflow-hidden flex-shrink-0">
-                                        <img src={v.thumbnail} alt={v.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                    <div className="w-40 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 flex items-center justify-center">
+                                        <img
+                                            src={!v.thumbnail || (v.thumbnail.match(/\.(mp4|mov|avi|webm)$/i) || !v.thumbnail.match(/\.(jpg|jpeg|png|gif|webp)$/i))
+                                                ? 'https://placehold.co/600x400/e2e8f0/94a3b8?text=Video+Thumbnail'
+                                                : (v.thumbnail.startsWith('http') ? v.thumbnail : `http://localhost:8000/${v.thumbnail}`)}
+                                            alt={v.title}
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                            onError={(e) => {
+                                                const target = e.target as HTMLImageElement;
+                                                target.src = 'https://placehold.co/600x400/e2e8f0/94a3b8?text=Video+Thumbnail';
+                                            }}
+                                        />
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <h4 className="text-sm font-bold text-gray-900 line-clamp-2 group-hover:text-orange-600 transition-colors">{v.title}</h4>
