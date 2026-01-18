@@ -12,7 +12,7 @@ import type { Post } from '../types/auth';
 
 export function VideoPortal() {
   const { user } = useAuth();
-  const { posts } = usePosts();
+  const { posts, votePost } = usePosts();
   const [sortBy, setSortBy] = useState<'latest' | 'trending' | 'top'>('latest');
   const [showWarning, setShowWarning] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -49,6 +49,20 @@ export function VideoPortal() {
     if (sortBy === 'top') return b.rating - a.rating;
     return 0;
   });
+
+  const getImageUrl = (path?: string) => {
+    if (!path) return 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop';
+
+    // Check if it is a video file (simple extension check)
+    const isVideo = path.match(/\.(mp4|mov|avi|webm)$/i);
+    if (isVideo) {
+      // Return a default video placeholder image instead of the video file itself
+      return 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop';
+    }
+
+    if (path.startsWith('http')) return path;
+    return `http://localhost:8000/${path}`;
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -175,7 +189,7 @@ export function VideoPortal() {
             >
               <div className="relative">
                 <img
-                  src={video.thumbnail}
+                  src={getImageUrl(video.thumbnail)}
                   alt={video.title}
                   className="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-110"
                 />
@@ -199,10 +213,17 @@ export function VideoPortal() {
 
                 {/* Meta */}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1">
-                    <Star className="w-4 h-4 text-orange-500 fill-orange-500" />
-                    <span className="text-gray-700">{video.rating}</span>
-                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      votePost(video.id);
+                    }}
+                    className="flex items-center gap-1 group/vote hover:scale-110 transition-transform z-10 relative"
+                    title={video.hasVoted ? "Unvote" : "Vote"}
+                  >
+                    <Star className={`w-4 h-4 transition-colors ${video.hasVoted ? 'text-orange-500 fill-orange-500' : 'text-gray-400 group-hover/vote:text-orange-500'}`} />
+                    <span className={`text-sm font-medium ${video.hasVoted ? 'text-orange-600' : 'text-gray-600'}`}>{video.votes || 0}</span>
+                  </button>
                   <span className="text-gray-600">{video.views.toLocaleString()} views</span>
                 </div>
               </div>
