@@ -1,5 +1,12 @@
 export type UserRole = 'viewer' | 'creator' | 'admin';
 
+export const normalizeRole = (role?: string | null): UserRole => {
+  if (role === 'admin' || role === 'creator' || role === 'viewer') {
+    return role;
+  }
+  return 'viewer';
+};
+
 export interface User {
   id: string;
   name: string;
@@ -31,6 +38,11 @@ export interface Post {
   authorRole: UserRole;
   type: 'video' | 'audio' | 'blog';
   thumbnail?: string;
+  media?: Array<{
+    file_path: string;
+    file_type?: string;
+    file_size?: number;
+  }>;
   rating: number;
   votes: number; // Dynamic from DB
   hasVoted: boolean; // Computed for current user

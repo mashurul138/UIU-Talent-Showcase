@@ -76,7 +76,15 @@ export const api = {
                 },
                 body: formData,
             });
-            if (!response.ok) throw new Error('Failed to create post');
+            if (!response.ok) {
+                const text = await response.text();
+                try {
+                    const errorData = JSON.parse(text);
+                    throw new Error(errorData.error || errorData.message || 'Failed to create post');
+                } catch (e) {
+                    throw new Error(text || 'Failed to create post');
+                }
+            }
             return response.json();
         },
         delete: async (id: string) => {

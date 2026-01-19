@@ -1,14 +1,17 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Play, Pause, Volume2, VolumeX, Maximize, Settings, SkipBack, SkipForward, ChevronLeft, Star } from 'lucide-react';
 import { usePosts } from '../contexts/PostContext';
+import { useVideoPlayer } from '../contexts/VideoPlayerContext';
 import { api } from '../services/api';
+import { buildMediaUrl } from '../utils/media';
 
 type QualityOption = '1080p' | '720p' | '480p' | '360p';
 
 export function VideoWatchPage() {
     const { id } = useParams();
     const { posts, updatePostViews } = usePosts();
+    const viewIncrementedRef = useRef<string | null>(null);
 
     // Derive video directly to avoid first-render null state
     const video = useMemo(() => {
@@ -16,14 +19,24 @@ export function VideoWatchPage() {
         return posts.find(p => String(p.id) === String(id)) || null;
     }, [id, posts]);
 
-    const videoRef = useRef<HTMLVideoElement>(null);
+    const videoSurfaceRef = useRef<HTMLDivElement>(null);
     const progressContainerRef = useRef<HTMLDivElement>(null);
+    const {
+        track,
+        isPlaying,
+        currentTime,
+        duration,
+        volume,
+        isMuted,
+        loadTrack,
+        togglePlay: toggleVideo,
+        seek,
+        setVolume: setVideoVolume,
+        toggleMute: toggleVideoMute,
+        setPortalTarget,
+        clearPortalTarget,
+    } = useVideoPlayer();
 
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [currentTime, setCurrentTime] = useState(0);
-    const [duration, setDuration] = useState(0);
-    const [volume, setVolume] = useState(1);
-    const [isMuted, setIsMuted] = useState(false);
     const [showControls, setShowControls] = useState(true);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [showQualityMenu, setShowQualityMenu] = useState(false);
@@ -36,34 +49,31 @@ export function VideoWatchPage() {
         window.scrollTo(0, 0);
     }, [id]);
 
+    useLayoutEffect(() => {
+        const target = videoSurfaceRef.current;
+        if (!target) return;
+        setPortalTarget(target);
+        return () => clearPortalTarget(target);
+    }, [setPortalTarget, clearPortalTarget]);
+
     useEffect(() => {
-        const videoEl = videoRef.current;
-        if (!videoEl) return;
-
-        const handleTimeUpdate = () => setCurrentTime(videoEl.currentTime);
-        const handleLoadedMetadata = () => setDuration(videoEl.duration);
-        const handleEnded = () => setIsPlaying(false);
-
-        videoEl.addEventListener('timeupdate', handleTimeUpdate);
-        videoEl.addEventListener('loadedmetadata', handleLoadedMetadata);
-        videoEl.addEventListener('ended', handleEnded);
-
-        return () => {
-            videoEl.removeEventListener('timeupdate', handleTimeUpdate);
-            videoEl.removeEventListener('loadedmetadata', handleLoadedMetadata);
-            videoEl.removeEventListener('ended', handleEnded);
-        };
-    }, [video]);
+        if (!video) return;
+        if (!track || String(track.id) !== String(video.id)) {
+            loadTrack(video, false);
+        }
+    }, [video, track, loadTrack]);
 
     // Increment view count on mount
     useEffect(() => {
-        if (id && video) {
-            // Fire and forget, but update local state on success
-            api.posts.incrementView(id).then(data => {
-                updatePostViews(id, data.views);
-            }).catch(console.error);
-        }
-    }, [id]); // Only run on mount/id change
+        if (!id || !video) return;
+        if (viewIncrementedRef.current === id) return;
+        viewIncrementedRef.current = id;
+
+        // Fire and forget, but update local state on success
+        api.posts.incrementView(id).then(data => {
+            updatePostViews(id, data.views);
+        }).catch(console.error);
+    }, [id, video, updatePostViews]);
 
     useEffect(() => {
         let controlsTimeout: NodeJS.Timeout;
@@ -75,18 +85,6 @@ export function VideoWatchPage() {
         return () => clearTimeout(controlsTimeout);
     }, [showControls, isPlaying]);
 
-    const togglePlay = () => {
-        const videoEl = videoRef.current;
-        if (!videoEl) return;
-
-        if (isPlaying) {
-            videoEl.pause();
-        } else {
-            videoEl.play();
-        }
-        setIsPlaying(!isPlaying);
-    };
-
     const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
         const container = progressContainerRef.current;
         if (!container) return;
@@ -94,41 +92,18 @@ export function VideoWatchPage() {
         const rect = container.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const percentage = x / rect.width;
-        const videoEl = videoRef.current;
-
-        if (videoEl) {
-            videoEl.currentTime = percentage * videoEl.duration;
+        if (duration > 0) {
+            seek(percentage * duration);
         }
     };
 
     const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newVolume = parseFloat(e.target.value);
-        setVolume(newVolume);
-        setIsMuted(newVolume === 0);
-
-        const videoEl = videoRef.current;
-        if (videoEl) {
-            videoEl.volume = newVolume;
-            videoEl.muted = newVolume === 0;
-        }
-    };
-
-    const toggleMute = () => {
-        const videoEl = videoRef.current;
-        if (!videoEl) return;
-
-        if (isMuted) {
-            videoEl.muted = false;
-            videoEl.volume = volume || 1;
-            setIsMuted(false);
-        } else {
-            videoEl.muted = true;
-            setIsMuted(true);
-        }
+        setVideoVolume(newVolume);
     };
 
     const toggleFullscreen = () => {
-        const container = videoRef.current?.parentElement;
+        const container = videoSurfaceRef.current?.parentElement;
         if (!container) return;
 
         if (!document.fullscreenElement) {
@@ -141,17 +116,11 @@ export function VideoWatchPage() {
     };
 
     const skipBackward = () => {
-        const videoEl = videoRef.current;
-        if (videoEl) {
-            videoEl.currentTime = Math.max(0, videoEl.currentTime - 10);
-        }
+        seek(Math.max(0, currentTime - 10));
     };
 
     const skipForward = () => {
-        const videoEl = videoRef.current;
-        if (videoEl) {
-            videoEl.currentTime = Math.min(duration, videoEl.currentTime + 10);
-        }
+        seek(Math.min(duration, currentTime + 10));
     };
 
     const formatTime = (time: number) => {
@@ -203,20 +172,23 @@ export function VideoWatchPage() {
                 {/* Main Content */}
                 <div className="lg:col-span-2 space-y-6">
                     <div
-                        className="relative bg-black rounded-2xl overflow-hidden group shadow-2xl aspect-video"
+                        className="relative bg-black rounded-2xl overflow-hidden group shadow-2xl"
+                        style={{ aspectRatio: '16 / 9' }}
                         onMouseEnter={() => setShowControls(true)}
                         onMouseLeave={() => isPlaying && setShowControls(false)}
                     >
-                        <video
-                            ref={videoRef}
-                            src={!video.thumbnail ? '' : (video.thumbnail.startsWith('http') ? video.thumbnail : `http://localhost:8000/${video.thumbnail}`)}
-                            className="w-full h-full object-contain"
-                            onClick={togglePlay}
+                        <div
+                            ref={videoSurfaceRef}
+                            className="absolute inset-0"
+                            onClick={toggleVideo}
                         />
 
                         {!isPlaying && (
                             <button
-                                onClick={togglePlay}
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    toggleVideo();
+                                }}
                                 className="absolute inset-0 flex items-center justify-center bg-black/30 hover:bg-black/40 transition-colors"
                             >
                                 <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:scale-110 transition-transform">
@@ -226,9 +198,19 @@ export function VideoWatchPage() {
                         )}
 
                         <div
-                            className={`absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}
+                            className={`absolute bg-gradient-to-t from-black/90 via-black/60 to-transparent transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0'}`}
+                            style={{
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                pointerEvents: showControls ? 'auto' : 'none',
+                            }}
+                            onClick={toggleVideo}
                         >
-                            <div className="p-4 space-y-3">
+                            <div
+                                className="p-4 space-y-3"
+                                onClick={(event) => event.stopPropagation()}
+                            >
                                 <div className="flex items-center justify-between text-white text-xs">
                                     <span>{formatTime(currentTime)}</span>
                                     <span>{formatTime(duration)}</span>
@@ -258,7 +240,7 @@ export function VideoWatchPage() {
                                         </button>
 
                                         <button
-                                            onClick={togglePlay}
+                                            onClick={toggleVideo}
                                             className="p-2 text-white hover:text-orange-500 transition-colors"
                                         >
                                             {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-0.5" />}
@@ -274,7 +256,7 @@ export function VideoWatchPage() {
 
                                         <div className="relative flex items-center gap-2">
                                             <button
-                                                onClick={toggleMute}
+                                                onClick={toggleVideoMute}
                                                 onMouseEnter={() => setShowVolumeSlider(true)}
                                                 onMouseLeave={() => setShowVolumeSlider(false)}
                                                 className="p-2 text-white hover:text-orange-500 transition-colors"
@@ -382,13 +364,13 @@ export function VideoWatchPage() {
                                     className="flex gap-3 group"
                                 >
                                     <div className="w-40 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-gray-100 flex items-center justify-center">
-                                        <img
-                                            src={!v.thumbnail || (v.thumbnail.match(/\.(mp4|mov|avi|webm)$/i) || !v.thumbnail.match(/\.(jpg|jpeg|png|gif|webp)$/i))
-                                                ? 'https://placehold.co/600x400/e2e8f0/94a3b8?text=Video+Thumbnail'
-                                                : (v.thumbnail.startsWith('http') ? v.thumbnail : `http://localhost:8000/${v.thumbnail}`)}
-                                            alt={v.title}
-                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                            onError={(e) => {
+                                    <img
+                                        src={!v.thumbnail || (v.thumbnail.match(/\.(mp4|mov|avi|webm)$/i) || !v.thumbnail.match(/\.(jpg|jpeg|png|gif|webp)$/i))
+                                            ? 'https://placehold.co/600x400/e2e8f0/94a3b8?text=Video+Thumbnail'
+                                            : buildMediaUrl(v.thumbnail)}
+                                        alt={v.title}
+                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                        onError={(e) => {
                                                 const target = e.target as HTMLImageElement;
                                                 target.src = 'https://placehold.co/600x400/e2e8f0/94a3b8?text=Video+Thumbnail';
                                             }}

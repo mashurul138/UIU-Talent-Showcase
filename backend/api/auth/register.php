@@ -22,7 +22,10 @@ if (!isset($data['name']) || !isset($data['email']) || !isset($data['password'])
 $name = $conn->real_escape_string($data['name']);
 $email = $conn->real_escape_string($data['email']);
 $password = password_hash($data['password'], PASSWORD_DEFAULT);
-$role = isset($data['role']) ? $conn->real_escape_string($data['role']) : 'user';
+$role = isset($data['role']) ? $conn->real_escape_string($data['role']) : 'viewer';
+if (!in_array($role, ['viewer', 'creator', 'admin'], true)) {
+    $role = 'viewer';
+}
 
 // Check if email already exists
 $checkQuery = "SELECT id FROM users WHERE email = '$email'";

@@ -3,6 +3,7 @@ import { Trash2, RotateCcw, X, Video, Mic, FileText, AlertTriangle, Shield } fro
 import { useAuth } from '../contexts/AuthContext';
 import { hasRole } from '../utils/permissions';
 import { usePosts } from '../contexts/PostContext';
+import { buildMediaUrl } from '../utils/media';
 
 export function GarbageBin() {
   const { user } = useAuth();
@@ -93,8 +94,7 @@ export function GarbageBin() {
 
   const getImageUrl = (path?: string) => {
     if (!path) return 'https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=400';
-    if (path.startsWith('http')) return path;
-    return `http://localhost:8000/${path}`;
+    return buildMediaUrl(path);
   };
 
   return (

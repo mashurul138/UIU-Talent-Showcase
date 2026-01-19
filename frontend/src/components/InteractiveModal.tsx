@@ -143,7 +143,10 @@ export function InteractiveModal({ isOpen, onClose, type }: InteractiveModalProp
                     ) : (
                         <div className="space-y-6">
                             {type === 'video' && (
-                                <div className="relative aspect-video bg-black rounded-2xl overflow-hidden shadow-inner ring-1 ring-black/5">
+                                <div
+                                    className="relative bg-black rounded-2xl overflow-hidden shadow-inner ring-1 ring-black/5"
+                                    style={{ aspectRatio: '16 / 9' }}
+                                >
                                     <video
                                         ref={videoRef}
                                         autoPlay

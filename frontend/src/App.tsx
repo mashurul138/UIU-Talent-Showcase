@@ -8,6 +8,7 @@ import { VideoWatchPage } from './components/VideoWatchPage';
 import { AudioPortal } from './components/AudioPortal';
 import { AudioListenPage } from './components/AudioListenPage';
 import { BlogPortal } from './components/BlogPortal';
+import { BlogReadPage } from './components/BlogReadPage';
 import { Leaderboard } from './components/Leaderboard';
 import { PendingPosts } from './components/PendingPosts';
 import { GarbageBin } from './components/GarbageBin';
@@ -15,9 +16,13 @@ import { Profile } from './components/Profile';
 import { Login } from './components/Login';
 import { Signup } from './components/Signup';
 import { Footer } from './components/Footer';
+import { MiniAudioPlayer } from './components/MiniAudioPlayer';
+import { MiniVideoPlayer } from './components/MiniVideoPlayer';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PostProvider } from './contexts/PostContext';
 import { LeaderboardProvider } from './contexts/LeaderboardContext';
+import { AudioPlayerProvider } from './contexts/AudioPlayerContext';
+import { VideoPlayerProvider } from './contexts/VideoPlayerContext';
 import { ProtectedRoute, PublicRoute } from './components/auth/ProtectedRoute';
 import { AdminDashboard } from './components/AdminDashboard';
 import { canAccessGarbageBin } from './utils/permissions';
@@ -33,6 +38,8 @@ function MainLayout({ children }: { children: ReactNode }) {
       <main className="container mx-auto px-4 py-8">
         {children}
       </main>
+      <MiniVideoPlayer />
+      <MiniAudioPlayer />
       <Footer />
     </div>
   );
@@ -201,6 +208,16 @@ function AppContent() {
         }
       />
       <Route
+        path="/blogs/:id"
+        element={
+          <ProtectedRoute minimumRole="viewer">
+            <MainLayout>
+              <BlogReadPage />
+            </MainLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/leaderboard"
         element={
           <ProtectedRoute minimumRole="viewer">
@@ -261,9 +278,13 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <PostProvider>
-          <LeaderboardProvider>
-            <AppContent />
-          </LeaderboardProvider>
+          <AudioPlayerProvider>
+            <VideoPlayerProvider>
+              <LeaderboardProvider>
+                <AppContent />
+              </LeaderboardProvider>
+            </VideoPlayerProvider>
+          </AudioPlayerProvider>
         </PostProvider>
       </AuthProvider>
     </BrowserRouter>

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, AuthContextType, UserRole } from '../types/auth';
+import { User, AuthContextType, UserRole, normalizeRole } from '../types/auth';
 import { api } from '../services/api';
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -30,8 +30,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (storedUser && token) {
       try {
         const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
+        const normalizedUser = { ...parsedUser, role: normalizeRole(parsedUser?.role) };
+        setUser(normalizedUser);
         setIsAuthenticated(true);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizedUser));
       } catch (error) {
         localStorage.removeItem(STORAGE_KEY);
         localStorage.removeItem(TOKEN_KEY);
@@ -43,10 +45,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const data = await api.auth.login(email, password);
       const { user, token } = data;
+      const normalizedUser = { ...user, role: normalizeRole(user?.role) };
 
-      setUser(user);
+      setUser(normalizedUser);
       setIsAuthenticated(true);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizedUser));
       localStorage.setItem(TOKEN_KEY, token);
     } catch (error) {
       throw error;
@@ -57,10 +60,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const data = await api.auth.register(name, email, password, role);
       const { user, token } = data;
+      const normalizedUser = { ...user, role: normalizeRole(user?.role) };
 
-      setUser(user);
+      setUser(normalizedUser);
       setIsAuthenticated(true);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizedUser));
       localStorage.setItem(TOKEN_KEY, token);
     } catch (error) {
       throw error;

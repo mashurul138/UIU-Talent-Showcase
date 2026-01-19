@@ -1,17 +1,34 @@
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
+import { usePosts } from '../contexts/PostContext';
 import { RoleBadge } from './auth/RoleBadge';
 import { hasRole } from '../utils/permissions';
-import { LayoutDashboard, Upload, Users, FileText, Trash2, Activity, TrendingUp, Heart } from 'lucide-react';
+import { LayoutDashboard, Upload, Users, FileText, Trash2, Activity, TrendingUp, Heart, Video, Mic, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export function Dashboard() {
     const { user } = useAuth();
+    const { posts } = usePosts();
     const navigate = useNavigate();
 
     if (!user) return null;
 
     const isAdmin = hasRole(user, 'admin');
+    const myPosts = posts
+        .filter(post => String(post.authorId) === String(user.id))
+        .sort((a, b) => b.uploadDate.getTime() - a.uploadDate.getTime());
+
+    const typeMeta = {
+        video: { label: 'Video', icon: Video, badge: 'bg-orange-100 text-orange-700' },
+        audio: { label: 'Audio', icon: Mic, badge: 'bg-teal-100 text-teal-700' },
+        blog: { label: 'Blog', icon: BookOpen, badge: 'bg-indigo-100 text-indigo-700' },
+    } as const;
+
+    const statusMeta = {
+        approved: { label: 'Approved', badge: 'bg-green-100 text-green-700' },
+        pending: { label: 'Pending', badge: 'bg-yellow-100 text-yellow-700' },
+        rejected: { label: 'Rejected', badge: 'bg-red-100 text-red-700' },
+    } as const;
 
     // Animation variants
     const container = {
@@ -80,9 +97,9 @@ export function Dashboard() {
                     </>
                 ) : (
                     <>
-                        <StatCard title="My Uploads" value="24" icon={Upload} color="bg-blue-500" />
-                        <StatCard title="Total Views" value="8.5k" icon={TrendingUp} color="bg-orange-500" />
-                        <StatCard title="Avg. Rating" value="4.8" icon={Heart} color="bg-red-500" />
+                        <StatCard title="My Uploads" value={`${myPosts.length}`} icon={Upload} color="bg-blue-500" />
+                        <StatCard title="Total Views" value={`${myPosts.reduce((sum, post) => sum + (post.views || 0), 0).toLocaleString()}`} icon={TrendingUp} color="bg-orange-500" />
+                        <StatCard title="Avg. Rating" value={`${myPosts.length ? (myPosts.reduce((sum, post) => sum + (post.votes || 0), 0) / myPosts.length).toFixed(1) : '0.0'}`} icon={Heart} color="bg-red-500" />
                         <StatCard title="Followers" value="156" icon={Users} color="bg-green-500" />
                     </>
                 )}
@@ -125,29 +142,50 @@ export function Dashboard() {
                 </div>
             </motion.div>
 
-            {/* Recent Activity Mockup */}
-            <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-            >
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Activity</h2>
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    {[1, 2, 3].map((i) => (
-                        <div key={i} className="p-4 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-400">
-                                <Activity className="w-5 h-5" />
+            {/* Creator Content */}
+            {!isAdmin && (
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                >
+                    <h2 className="text-xl font-bold text-gray-900 mb-4">My Content</h2>
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        {myPosts.length === 0 ? (
+                            <div className="p-6 text-center text-gray-500">
+                                No uploads yet. Share your first post to see it here.
                             </div>
-                            <div>
-                                <p className="text-sm font-medium text-gray-900">
-                                    {isAdmin ? 'New user registration: John Doe' : 'Your video "Intro to UI Design" reached 1k views'}
-                                </p>
-                                <p className="text-xs text-gray-500">2 hours ago</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </motion.div>
+                        ) : (
+                            myPosts.map((post) => {
+                                const type = typeMeta[post.type];
+                                const status = statusMeta[post.status];
+                                const TypeIcon = type.icon;
+
+                                return (
+                                    <div key={post.id} className="p-4 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors flex items-center justify-between gap-4">
+                                        <div className="flex items-center gap-4 min-w-0">
+                                            <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
+                                                <TypeIcon className="w-5 h-5" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <div className="text-sm font-medium text-gray-900 truncate">{post.title}</div>
+                                                <div className="text-xs text-gray-500">
+                                                    {type.label} • {new Date(post.uploadDate).toLocaleDateString()}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3 shrink-0">
+                                            <span className={`text-xs font-medium px-2 py-1 rounded-full ${type.badge}`}>{type.label}</span>
+                                            <span className={`text-xs font-medium px-2 py-1 rounded-full ${status.badge}`}>{status.label}</span>
+                                            <span className="text-xs text-gray-500">{post.views.toLocaleString()} views</span>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </motion.div>
+            )}
         </div>
     );
 }

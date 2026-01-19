@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Clock, Video, Mic, BookOpen, Check, X, Filter, ChevronDown } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { usePosts } from '../contexts/PostContext';
+import { buildMediaUrl } from '../utils/media';
 
 export function PendingPosts() {
     const { user } = useAuth();
@@ -59,8 +60,7 @@ export function PendingPosts() {
             return 'https://images.unsplash.com/photo-1614680376593-902f74cf0d41?w=800&auto=format&fit=crop'; // Audio/Generic placeholder
         }
 
-        if (path.startsWith('http')) return path;
-        return `http://localhost:8000/${path}`;
+        return buildMediaUrl(path);
     };
 
     return (

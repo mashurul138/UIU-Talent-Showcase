@@ -1,5 +1,25 @@
 # UIU Talent Showcase - Complete Project Documentation
 
+## Current Status (2026-01)
+
+This project now uses a live PHP + MySQL backend with real authentication, uploads, and media playback.
+Key additions since the original UI mock:
+
+- Backend API with JWT login and role enforcement
+- Media uploads stored in `backend/uploads` with safe filenames
+- Global audio and video players with mini players on portal routes
+- View count increments once per visit on detail pages
+- Votes and leaderboard tables (`votes`, `user_votes`)
+
+See the current docs for details:
+- `AUTHENTICATION_SYSTEM.md`
+- `MEDIA_PLAYBACK.md`
+- `TESTING_GUIDE.md`
+
+## Legacy Notes
+
+The remainder of this document describes the original UI mock and may reference outdated mock data.
+
 ## 📋 Project Overview
 
 **UIU Talent Showcase** is a modern, full-featured web dashboard designed for showcasing student talents across three specialized content portals: Video, Audio, and Blog. The platform features a comprehensive authentication system, content management with moderation capabilities, rating-based leaderboards, and a professional UIU-themed design with smooth animations throughout.

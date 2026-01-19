@@ -1,16 +1,17 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { BookOpen, Star, TrendingUp, Clock, Award, AlertCircle, X, Upload, PenTool, Filter, ChevronDown } from 'lucide-react';
 import { PortalLeaderboard } from './PortalLeaderboard';
 import { UploadModal } from './UploadModal';
 import { InteractiveModal } from './InteractiveModal';
 import { useAuth } from '../contexts/AuthContext';
 import { usePosts } from '../contexts/PostContext';
-import { api } from '../services/api';
 import { canUpload } from '../utils/permissions';
+import { buildMediaUrl } from '../utils/media';
 
 export function BlogPortal() {
   const { user } = useAuth();
-  const { posts, votePost, updatePostViews } = usePosts();
+  const { posts, votePost } = usePosts();
   const [sortBy, setSortBy] = useState<'latest' | 'trending' | 'top'>('latest');
   const [showWarning, setShowWarning] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -93,8 +94,14 @@ export function BlogPortal() {
 
   const getImageUrl = (path?: string) => {
     if (!path) return 'https://images.unsplash.com/photo-1499750310159-5b5f8ca473aa?w=800&auto=format&fit=crop';
-    if (path.startsWith('http')) return path;
-    return `http://localhost:8000/${path}`;
+    return buildMediaUrl(path);
+  };
+
+  const getReadTime = (text?: string) => {
+    if (!text) return '1 min';
+    const words = text.trim().split(/\s+/).filter(Boolean).length;
+    const minutes = Math.max(1, Math.round(words / 200));
+    return `${minutes} min`;
   };
 
   return (
@@ -265,16 +272,9 @@ export function BlogPortal() {
         {/* Blog List */}
         <div className="space-y-6">
           {sortedBlogs.map((blog: any) => ( // Use any temporarily to avoid issues with missing readTime/description on base Post type
-            <a
+            <Link
               key={blog.id}
-              href="https://www.lipsum.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => {
-                api.posts.incrementView(blog.id).then(data => {
-                  updatePostViews(blog.id, data.views);
-                }).catch(console.error);
-              }}
+              to={`/blogs/${blog.id}`}
               className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all hover:scale-[1.01] cursor-pointer border-l-4 border-indigo-600 block"
             >
               <div className="md:flex">
@@ -308,12 +308,12 @@ export function BlogPortal() {
                         <span className={`text-sm font-medium ${blog.hasVoted ? 'text-indigo-700' : 'text-gray-600'}`}>{blog.votes || 0}</span>
                       </button>
                       <span className="text-gray-600">{blog.views.toLocaleString()} reads</span>
-                      <span className="text-gray-600">{blog.readTime} read</span>
+                      <span className="text-gray-600">{getReadTime(blog.description)} read</span>
                     </div>
                   </div>
                 </div>
               </div>
-            </a>
+            </Link>
           ))}
         </div>
 

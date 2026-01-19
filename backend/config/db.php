@@ -8,7 +8,7 @@ if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] == 'OPTIONS'
     exit();
 }
 
-$host = "127.0.0.1";
+$host = "localhost";
 $user = "root";
 $password = "";
 $database = "uiu_talent_show";
@@ -19,4 +19,3 @@ $conn = new mysqli($host, $user, $password, $database);
 if ($conn->connect_error) {
     die(json_encode(["error" => "Database connection failed: " . $conn->connect_error]));
 }
-?>

@@ -2,11 +2,14 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Shuffle, Heart, ChevronLeft } from 'lucide-react';
 import { usePosts } from '../contexts/PostContext';
+import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 import { api } from '../services/api';
+import { buildMediaUrl } from '../utils/media';
 
 export function AudioListenPage() {
     const { id } = useParams();
     const { posts, updatePostViews } = usePosts();
+    const viewIncrementedRef = useRef<string | null>(null);
 
     // Derive audio directly to avoid first-render null state
     const audio = useMemo(() => {
@@ -16,49 +19,33 @@ export function AudioListenPage() {
 
     // Increment view count on mount
     useEffect(() => {
-        if (id && audio) {
-            api.posts.incrementView(id).then(data => {
-                updatePostViews(id, data.views);
-            }).catch(console.error);
-        }
-    }, [id]);
+        if (!id || !audio) return;
+        if (viewIncrementedRef.current === id) return;
+        viewIncrementedRef.current = id;
 
-    const audioRef = useRef<HTMLAudioElement>(null);
+        api.posts.incrementView(id).then(data => {
+            updatePostViews(id, data.views);
+        }).catch(console.error);
+    }, [id, audio, updatePostViews]);
+
+    const { track, isPlaying, currentTime, duration: audioDuration, volume, isMuted, loadTrack, togglePlay: toggleAudio, seek, setVolume: setAudioVolume, toggleMute: toggleAudioMute } = useAudioPlayer();
     const progressContainerRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
-
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [currentTime, setCurrentTime] = useState(0);
-    const [audioDuration, setAudioDuration] = useState(0);
-    const [volume, setVolume] = useState(0.7);
-    const [isMuted, setIsMuted] = useState(false);
     const [isLiked, setIsLiked] = useState(false);
     const [isShuffle, setIsShuffle] = useState(false);
     const [isRepeat, setIsRepeat] = useState(false);
     const [waveformData, setWaveformData] = useState<number[]>([]);
 
     useEffect(() => {
-        window.scrollTo(0, 0);
-    }, [id]);
+        if (!audio) return;
+        if (!track || String(track.id) !== String(audio.id)) {
+            loadTrack(audio, true);
+        }
+    }, [audio, track, loadTrack]);
 
     useEffect(() => {
-        const audioEl = audioRef.current;
-        if (!audioEl) return;
-
-        const handleTimeUpdate = () => setCurrentTime(audioEl.currentTime);
-        const handleLoadedMetadata = () => setAudioDuration(audioEl.duration);
-        const handleEnded = () => setIsPlaying(false);
-
-        audioEl.addEventListener('timeupdate', handleTimeUpdate);
-        audioEl.addEventListener('loadedmetadata', handleLoadedMetadata);
-        audioEl.addEventListener('ended', handleEnded);
-
-        return () => {
-            audioEl.removeEventListener('timeupdate', handleTimeUpdate);
-            audioEl.removeEventListener('loadedmetadata', handleLoadedMetadata);
-            audioEl.removeEventListener('ended', handleEnded);
-        };
-    }, [audio]);
+        window.scrollTo(0, 0);
+    }, [id]);
 
     useEffect(() => {
         generateWaveform();
@@ -108,18 +95,6 @@ export function AudioListenPage() {
         drawWaveform();
     }, [currentTime, audioDuration, waveformData]);
 
-    const togglePlay = () => {
-        const audioEl = audioRef.current;
-        if (!audioEl) return;
-
-        if (isPlaying) {
-            audioEl.pause();
-        } else {
-            audioEl.play();
-        }
-        setIsPlaying(!isPlaying);
-    };
-
     const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
         const container = progressContainerRef.current;
         if (!container) return;
@@ -127,51 +102,22 @@ export function AudioListenPage() {
         const rect = container.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const percentage = x / rect.width;
-        const audioEl = audioRef.current;
-
-        if (audioEl) {
-            audioEl.currentTime = percentage * audioEl.duration;
+        if (audioDuration > 0) {
+            seek(percentage * audioDuration);
         }
     };
 
     const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newVolume = parseFloat(e.target.value);
-        setVolume(newVolume);
-        setIsMuted(newVolume === 0);
-
-        const audioEl = audioRef.current;
-        if (audioEl) {
-            audioEl.volume = newVolume;
-            audioEl.muted = newVolume === 0;
-        }
-    };
-
-    const toggleMute = () => {
-        const audioEl = audioRef.current;
-        if (!audioEl) return;
-
-        if (isMuted) {
-            audioEl.muted = false;
-            audioEl.volume = volume || 1;
-            setIsMuted(false);
-        } else {
-            audioEl.muted = true;
-            setIsMuted(true);
-        }
+        setAudioVolume(newVolume);
     };
 
     const skipBackward = () => {
-        const audioEl = audioRef.current;
-        if (audioEl) {
-            audioEl.currentTime = Math.max(0, audioEl.currentTime - 15);
-        }
+        seek(Math.max(0, currentTime - 15));
     };
 
     const skipForward = () => {
-        const audioEl = audioRef.current;
-        if (audioEl) {
-            audioEl.currentTime = Math.min(audioDuration, audioEl.currentTime + 15);
-        }
+        seek(Math.min(audioDuration, currentTime + 15));
     };
 
     const formatTime = (time: number) => {
@@ -210,9 +156,6 @@ export function AudioListenPage() {
     return (
         <div className="bg-[#0a0a0a] -mx-4 -mt-8 min-h-screen text-white flex flex-col items-center justify-center p-4 md:p-8">
             <div className="w-full max-w-5xl bg-gradient-to-br from-gray-900 via-gray-800 to-black rounded-3xl overflow-hidden shadow-2xl border border-white/5 p-6 md:p-12 relative">
-                {/* Hidden Audio Element */}
-                <audio ref={audioRef} src={!audio.thumbnail ? '' : (audio.thumbnail.startsWith('http') ? audio.thumbnail : `http://localhost:8000/${audio.thumbnail}`)} className="hidden" />
-
                 <div className="flex items-center mb-8 relative z-20">
                     <Link to="/audio" className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors">
                         <ChevronLeft className="w-5 h-5" />
@@ -225,8 +168,8 @@ export function AudioListenPage() {
                         <div className="w-48 h-48 md:w-64 md:h-64 rounded-xl overflow-hidden shadow-2xl bg-[#e8e6e1] flex items-center justify-center">
                             <img
                                 src={!audio.thumbnail || (audio.thumbnail.match(/\.(mp3|wav|flac|aac|ogg|mp4|mov|avi|webm)$/i) || !audio.thumbnail.match(/\.(jpg|jpeg|png|gif|webp)$/i))
-                                    ? 'https://images.unsplash.com/photo-1478737270239-2f52b27e9088?w=800&auto=format&fit=crop'
-                                    : (audio.thumbnail.startsWith('http') ? audio.thumbnail : `http://localhost:8000/${audio.thumbnail}`)}
+                    ? 'https://images.unsplash.com/photo-1478737270239-2f52b27e9088?w=800&auto=format&fit=crop'
+                                    : buildMediaUrl(audio.thumbnail)}
                                 alt={audio.title}
                                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                                 onError={(e) => {
@@ -260,7 +203,7 @@ export function AudioListenPage() {
                             </button>
 
                             <button
-                                onClick={togglePlay}
+                                onClick={toggleAudio}
                                 className="w-20 h-20 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center shadow-lg hover:shadow-green-500/30 transition-all hover:scale-105"
                             >
                                 {isPlaying ? <Pause className="w-10 h-10 text-white fill-current" /> : <Play className="w-10 h-10 text-white fill-current ml-1" />}
@@ -303,7 +246,7 @@ export function AudioListenPage() {
                         </button>
 
                         <div className="flex items-center gap-4 flex-1 max-w-[250px] ml-auto">
-                            <button onClick={toggleMute} className="text-gray-400 hover:text-white">
+                            <button onClick={toggleAudioMute} className="text-gray-400 hover:text-white">
                                 {isMuted || volume === 0 ? <VolumeX className="w-6 h-6" /> : <Volume2 className="w-6 h-6" />}
                             </button>
                             <input
@@ -320,7 +263,10 @@ export function AudioListenPage() {
                 </div>
 
                 {isPlaying && (
-                    <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent pointer-events-none" />
+                    <div
+                        className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-transparent"
+                        style={{ pointerEvents: 'none' }}
+                    />
                 )}
             </div>
         </div>

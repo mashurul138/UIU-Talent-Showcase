@@ -1,95 +1,67 @@
-# UIU Talent Showcase Dashboard
+# UIU Talent Showcase
 
-A platform dedicated to showcasing the incredible talents of UIU students across video, audio, and written content. Built with React, TypeScript, and Vite.
+A React + PHP web app for showcasing student video, audio, and blog content with role-based access.
 
-## 📁 Project Structure
+## Features
+- Video, audio, and blog portals with approval workflow
+- Role-based access (viewer, creator, admin) with backend login
+- Media uploads stored in `backend/uploads` with safe filenames
+- Global audio and video players with mini players on portal routes (click mini video to reopen full player)
+- View counts increment once per visit
+- Votes and leaderboard support (`votes`, `user_votes` tables)
+
+## Project Structure
 
 ```
 WEB_PROJECT/
-├── frontend/          # React frontend application
-│   ├── src/
-│   │   ├── components/    # React components
-│   │   ├── contexts/      # Context providers (Auth, Post)
-│   │   ├── types/         # TypeScript type definitions
-│   │   ├── utils/         # Utility functions
-│   │   └── styles/        # Global styles
-│   ├── index.html
-│   ├── package.json
-│   └── vite.config.ts
-└── backend/           # Backend server (to be implemented)
+  backend/               # PHP API and upload storage
+  frontend/              # React frontend
+  AUTHENTICATION_SYSTEM.md
+  MEDIA_PLAYBACK.md
+  TESTING_GUIDE.md
+  uiu_talent_show.sql     # Database schema
 ```
 
-## 🚀 Getting Started
+## Setup
 
-### Frontend Setup
- 
-1. Navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
+### Database
+1. Create the database and tables:
+   - Import `uiu_talent_show.sql` into MySQL.
 
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
+### Backend
+1. Ensure PHP can write to `backend/uploads`.
+2. Update PHP upload limits in `php.ini`:
+   - `upload_max_filesize = 4G`
+   - `post_max_size = 4G`
+3. Start the PHP server:
 
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-4. Open your browser and visit: `http://localhost:3000`
-
-## 🎨 Features
-
-- **Video Portal** - Share and discover student-created films and showcases
-- **Audio Portal** - Upload and stream audio content from campus creators
-- **Blog Portal** - Read and publish written content and stories
-- **Leaderboard** - Track top contributors across all portals
-- **User Authentication** - Role-based access control (Viewer, Creator, Admin)
-- **Admin Dashboard** - Content moderation and user management
-- **Responsive Design** - Optimized for all screen sizes
-
-## 👥 User Roles
-
-- **Viewer** - Browse and view content
-- **Creator** - Upload and manage own content
-- **Admin** - Full access to moderation and user management
-
-## 🛠️ Tech Stack
+```bash
+cd backend
+php -S localhost:8000
+```
 
 ### Frontend
-- React 18
-- TypeScript
-- Vite
-- React Router
-- Tailwind CSS
-- Lucide Icons
-- Framer Motion
 
-## 📄 Available Scripts
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm run lint` - Run ESLint
+Open `http://localhost:3000`.
 
-## 📚 Documentation
+### Media URL Base
+The frontend resolves media from `frontend/src/utils/media.ts` (`MEDIA_BASE_URL`).
+Make sure it matches the PHP server address (default `http://localhost:8000`).
 
-- [Authentication System](./AUTHENTICATION_SYSTEM.md)
-- [Testing Guide](./TESTING_GUIDE.md)
-- [Project Documentation](./src/PROJECT_DOCUMENTATION.md)
+## Test Accounts
 
-## 🎨 Design
+- Viewer: `viewer@uiu.ac.bd` / `viewer123`
+- Creator: `creator@uiu.ac.bd` / `creator123`
+- Admin: `admin@uiu.ac.bd` / `admin123`
 
-Original Figma design: https://www.figma.com/design/vvaqy8UxaqB1ndwcnLMZlR/UIU-Talent-Showcase-Dashboard
-
-## 👨‍💻 Development Team
-
-Made with ❤️ by **LionHeart Team**
-
-## 📝 License
-
-This project is developed for UIU (United International University).
-
-  
+## Documentation
+- Authentication and roles: `AUTHENTICATION_SYSTEM.md`
+- Media playback and mini players: `MEDIA_PLAYBACK.md`
+- Testing scenarios: `TESTING_GUIDE.md`
+- Legacy UI notes: `frontend/src/PROJECT_DOCUMENTATION.md`

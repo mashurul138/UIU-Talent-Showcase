@@ -38,6 +38,23 @@ if (empty($title) || empty($type)) {
 
 $duration = isset($_POST['duration']) ? $conn->real_escape_string($_POST['duration']) : "0:00";
 
+if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+    $upload_errors = [
+        UPLOAD_ERR_INI_SIZE => "Uploaded file exceeds server limit (upload_max_filesize).",
+        UPLOAD_ERR_FORM_SIZE => "Uploaded file exceeds form limit.",
+        UPLOAD_ERR_PARTIAL => "Uploaded file was only partially received.",
+        UPLOAD_ERR_NO_FILE => "No file was uploaded.",
+        UPLOAD_ERR_NO_TMP_DIR => "Missing temporary folder for upload.",
+        UPLOAD_ERR_CANT_WRITE => "Failed to write uploaded file to disk.",
+        UPLOAD_ERR_EXTENSION => "File upload stopped by a PHP extension."
+    ];
+    $error_code = isset($_FILES['file']) ? $_FILES['file']['error'] : UPLOAD_ERR_NO_FILE;
+    $message = $upload_errors[$error_code] ?? "File upload failed.";
+    http_response_code(400);
+    echo json_encode(["error" => $message]);
+    exit();
+}
+
 // Insert Post
 $sql = "INSERT INTO posts (user_id, title, description, type, status, duration) VALUES ('$user_id', '$title', '$description', '$type', 'pending', '$duration')";
 
@@ -46,26 +63,38 @@ if ($conn->query($sql) === TRUE) {
     
     // Handle File Upload if exists
     $file_url = "";
-    if (isset($_FILES['file']) && $_FILES['file']['error'] == 0) {
-        $target_dir = "../../uploads/";
-        if (!file_exists($target_dir)) {
-            mkdir($target_dir, 0777, true);
-        }
-        
-        $file_name = time() . "_" . basename($_FILES["file"]["name"]);
-        $target_file = $target_dir . $file_name;
-        $file_type = strtolower(pathinfo($target_file, PATHINFO_EXTENSION));
-        
-        // Basic file type validation could go here
-        
-        if (move_uploaded_file($_FILES["file"]["tmp_name"], $target_file)) {
-             // Save relative path or full URL. For this env, simple relative path
-             $file_url = "uploads/" . $file_name;
-             
-             $mediaSql = "INSERT INTO media (post_id, file_path, file_type, file_size) VALUES ('$post_id', '$file_url', '$file_type', " . $_FILES["file"]["size"] . ")";
-             $conn->query($mediaSql);
-        }
+    $target_dir = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . "uploads" . DIRECTORY_SEPARATOR;
+    if (!file_exists($target_dir) && !mkdir($target_dir, 0777, true)) {
+        http_response_code(500);
+        echo json_encode(["error" => "Failed to create upload directory."]);
+        exit();
     }
+
+    $original_name = $_FILES["file"]["name"];
+    $extension = strtolower(pathinfo($original_name, PATHINFO_EXTENSION));
+    $base_name = pathinfo($original_name, PATHINFO_FILENAME);
+    $base_name = preg_replace('/[^A-Za-z0-9_-]+/', '_', $base_name);
+    $base_name = trim($base_name, '_');
+    if ($base_name === '') {
+        $base_name = 'file';
+    }
+    $file_name = time() . "_" . $base_name . ($extension ? "." . $extension : "");
+    $target_file = $target_dir . $file_name;
+    $file_type = $extension;
+
+    // Basic file type validation could go here
+
+    if (!move_uploaded_file($_FILES["file"]["tmp_name"], $target_file)) {
+        http_response_code(500);
+        echo json_encode(["error" => "Failed to store uploaded file."]);
+        exit();
+    }
+
+    // Save relative path for the frontend URL builder
+    $file_url = "uploads/" . $file_name;
+
+    $mediaSql = "INSERT INTO media (post_id, file_path, file_type, file_size) VALUES ('$post_id', '$file_url', '$file_type', " . $_FILES["file"]["size"] . ")";
+    $conn->query($mediaSql);
 
     // Determine thumbnail (simulated for now, could be same as file or generated)
     $thumbnail = $file_url; 

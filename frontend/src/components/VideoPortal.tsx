@@ -8,6 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { usePosts } from '../contexts/PostContext';
 import { canUpload } from '../utils/permissions';
 import type { Post } from '../types/auth';
+import { buildMediaUrl } from '../utils/media';
 
 
 export function VideoPortal() {
@@ -60,8 +61,7 @@ export function VideoPortal() {
       return 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop';
     }
 
-    if (path.startsWith('http')) return path;
-    return `http://localhost:8000/${path}`;
+    return buildMediaUrl(path);
   };
 
   return (

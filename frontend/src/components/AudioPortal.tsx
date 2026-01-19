@@ -7,6 +7,7 @@ import { InteractiveModal } from './InteractiveModal';
 import { useAuth } from '../contexts/AuthContext';
 import { usePosts } from '../contexts/PostContext';
 import { canUpload } from '../utils/permissions';
+import { buildMediaUrl } from '../utils/media';
 
 export function AudioPortal() {
   const { user } = useAuth();
@@ -56,8 +57,7 @@ export function AudioPortal() {
       return 'https://images.unsplash.com/photo-1478737270239-2f52b27e9088?w=800&auto=format&fit=crop'; // Audio placeholder
     }
 
-    if (path.startsWith('http')) return path;
-    return `http://localhost:8000/${path}`;
+    return buildMediaUrl(path);
   };
 
   return (

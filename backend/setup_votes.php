@@ -16,4 +16,3 @@ if ($conn->query($sql) === TRUE) {
 } else {
     echo "Error creating table: " . $conn->error;
 }
-?>
