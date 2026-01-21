@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, Star, TrendingUp, Clock, Award, AlertCircle, X, Upload, PenTool, Filter, ChevronDown } from 'lucide-react';
+import { BookOpen, TrendingUp, Clock, Award, AlertCircle, X, Upload, PenTool, Filter, ChevronDown } from 'lucide-react';
 import { PortalLeaderboard } from './PortalLeaderboard';
 import { UploadModal } from './UploadModal';
 import { InteractiveModal } from './InteractiveModal';
+import { StarRating } from './StarRating';
 import { useAuth } from '../contexts/AuthContext';
 import { usePosts } from '../contexts/PostContext';
 import { canUpload } from '../utils/permissions';
@@ -11,7 +12,7 @@ import { buildMediaUrl } from '../utils/media';
 
 export function BlogPortal() {
   const { user } = useAuth();
-  const { posts, votePost } = usePosts();
+  const { posts, ratePost } = usePosts();
   const [sortBy, setSortBy] = useState<'latest' | 'trending' | 'top'>('latest');
   const [showWarning, setShowWarning] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -93,7 +94,7 @@ export function BlogPortal() {
   });
 
   const getImageUrl = (path?: string) => {
-    if (!path) return 'https://images.unsplash.com/photo-1499750310159-5b5f8ca473aa?w=800&auto=format&fit=crop';
+    if (!path) return '';
     return buildMediaUrl(path);
   };
 
@@ -271,50 +272,62 @@ export function BlogPortal() {
 
         {/* Blog List */}
         <div className="space-y-6">
-          {sortedBlogs.map((blog: any) => ( // Use any temporarily to avoid issues with missing readTime/description on base Post type
-            <Link
-              key={blog.id}
-              to={`/blogs/${blog.id}`}
-              className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all hover:scale-[1.01] cursor-pointer border-l-4 border-indigo-600 block"
-            >
-              <div className="md:flex">
-                {/* Thumbnail */}
-                <div className="md:w-64 md:flex-shrink-0">
-                  <img
-                    src={getImageUrl(blog.thumbnail)}
-                    alt={blog.title}
-                    className="w-full h-48 md:h-full object-cover"
-                  />
-                </div>
+          {sortedBlogs.map((blog: any) => { // Use any temporarily to avoid issues with missing readTime/description on base Post type
+            const hasThumbnail = Boolean(blog.thumbnail);
 
-                {/* Content */}
-                <div className="p-6 flex-1">
-                  <h2 className="text-gray-900 mb-2">{blog.title}</h2>
-                  <p className="text-gray-600 mb-3">{blog.authorName}</p>
-                  <p className="text-gray-700 mb-4">{blog.description}</p>
+            return (
+              <Link
+                key={blog.id}
+                to={`/blogs/${blog.id}`}
+                className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all hover:scale-[1.01] cursor-pointer border-l-4 border-indigo-600 block"
+              >
+                <div className="md:flex">
+                  {/* Thumbnail */}
+                  {hasThumbnail && (
+                    <div className="md:w-64 md:flex-shrink-0">
+                      <img
+                        src={getImageUrl(blog.thumbnail)}
+                        alt={blog.title}
+                        className="w-full h-48 md:h-full object-cover"
+                      />
+                    </div>
+                  )}
 
-                  {/* Meta */}
+                  {/* Content */}
+                  <div className="p-6 flex-1">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">{blog.title}</h3>
+                    <p className="text-gray-600 mb-3">{blog.authorName}</p>
+                    <p className="text-gray-700 leading-relaxed mb-4">{blog.description}</p>
+
+                    {/* Meta */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          votePost(blog.id);
+                      <div
+                        className="flex items-center gap-2"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
                         }}
-                        className="flex items-center gap-1 group/vote hover:scale-110 transition-transform z-10 relative"
-                        title={blog.hasVoted ? "Unvote" : "Vote"}
                       >
-                        <Star className={`w-4 h-4 transition-colors ${blog.hasVoted ? 'text-indigo-600 fill-indigo-600' : 'text-gray-400 group-hover/vote:text-indigo-600'}`} />
-                        <span className={`text-sm font-medium ${blog.hasVoted ? 'text-indigo-700' : 'text-gray-600'}`}>{blog.votes || 0}</span>
-                      </button>
+                        <StarRating
+                          value={blog.rating || 0}
+                          userValue={blog.userRating || 0}
+                          onChange={(value) => ratePost(blog.id, value)}
+                          size="sm"
+                          colorClass="text-indigo-600"
+                        />
+                        <span className="text-xs text-gray-500">{(blog.rating || 0).toFixed(1)}</span>
+                        <span className="text-xs text-gray-400">({blog.votes || 0})</span>
+                      </div>
                       <span className="text-gray-600">{blog.views.toLocaleString()} reads</span>
                       <span className="text-gray-600">{getReadTime(blog.description)} read</span>
                     </div>
                   </div>
+                  </div>
                 </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
 
         <UploadModal

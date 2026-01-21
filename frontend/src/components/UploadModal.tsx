@@ -84,7 +84,11 @@ export function UploadModal({ isOpen, onClose, initialType = 'video' }: UploadMo
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user || !file) return;
+        if (!user) return;
+        if (type !== 'blog' && !file) {
+            setError('Please select a media file before submitting.');
+            return;
+        }
 
         setIsSubmitting(true);
         setError(null);
@@ -209,7 +213,9 @@ export function UploadModal({ isOpen, onClose, initialType = 'video' }: UploadMo
 
                             {/* Description */}
                             <div>
-                                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Description</label>
+                                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                    {type === 'blog' ? 'Story' : 'Description'}
+                                </label>
                                 <textarea
                                     required
                                     value={description}
@@ -221,10 +227,12 @@ export function UploadModal({ isOpen, onClose, initialType = 'video' }: UploadMo
 
                             {/* File Upload */}
                             <div>
-                                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">Upload {type === 'blog' ? 'Header Image' : 'Media File'}</label>
+                                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                                    Upload {type === 'blog' ? 'Header Image (optional)' : 'Media File'}
+                                </label>
                                 <input
                                     type="file"
-                                    required
+                                    required={type !== 'blog'}
                                     onChange={(e) => {
                                         const file = e.target.files ? e.target.files[0] : null;
                                         setFile(file);

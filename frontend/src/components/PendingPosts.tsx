@@ -147,43 +147,61 @@ export function PendingPosts() {
                     {filteredPosts.map((post) => {
                         const TypeIcon = getTypeIcon(post.type);
                         const typeColor = getTypeColor(post.type);
+                        const hasThumbnail = Boolean(post.thumbnail);
+                        const showThumbnail = post.type !== 'blog' || hasThumbnail;
 
                         return (
                             <div
                                 key={post.id}
                                 className="bg-white rounded-3xl overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 border border-gray-100 group"
                             >
-                                <div className="md:flex">
+                                <div className="flex flex-col">
                                     {/* Thumbnail */}
-                                    <div className="md:w-80 md:flex-shrink-0 relative overflow-hidden">
-                                        <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors z-10" />
-                                        <img
-                                            src={getImageUrl(post.thumbnail)}
-                                            alt={post.title}
-                                            className="w-full h-64 md:h-full object-cover transform group-hover:scale-105 transition-transform duration-700"
-                                            onError={(e) => {
-                                                const target = e.target as HTMLImageElement;
-                                                // Fallback to generic image if load fails (likely audio/video file)
-                                                target.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop';
-                                            }}
-                                        />
-                                        <div className="absolute top-4 left-4 z-20">
-                                            <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold shadow-lg backdrop-blur-md ${typeColor}`}>
-                                                <TypeIcon className="w-4 h-4" />
-                                                {post.type.charAt(0).toUpperCase() + post.type.slice(1)}
-                                            </span>
+                                    {showThumbnail && (
+                                        <div className="relative w-full h-72 overflow-hidden">
+                                            <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors z-10" />
+                                            <img
+                                                src={getImageUrl(post.thumbnail)}
+                                                alt={post.title}
+                                                className="absolute inset-0 w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700"
+                                                onError={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    // Fallback to generic image if load fails (likely audio/video file)
+                                                    target.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop';
+                                                }}
+                                            />
+                                            <div className="absolute top-4 left-4 z-20">
+                                                <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold shadow-lg backdrop-blur-md ${typeColor}`}>
+                                                    <TypeIcon className="w-4 h-4" />
+                                                    {post.type.charAt(0).toUpperCase() + post.type.slice(1)}
+                                                </span>
+                                            </div>
                                         </div>
-                                    </div>
+                                    )}
 
                                     {/* Content */}
-                                    <div className="p-8 flex-1 flex flex-col justify-between">
+                                    <div className="p-8 flex-1 flex flex-col justify-between min-w-0">
                                         <div>
+                                            {!showThumbnail && (
+                                                <div className="mb-4">
+                                                    <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold shadow-sm ${typeColor}`}>
+                                                        <TypeIcon className="w-4 h-4" />
+                                                        {post.type.charAt(0).toUpperCase() + post.type.slice(1)}
+                                                    </span>
+                                                </div>
+                                            )}
                                             <div className="flex items-start justify-between mb-4">
-                                                <div>
-                                                    <h3 className="text-2xl font-bold text-gray-900 mb-2 group-hover:text-orange-600 transition-colors">
+                                                <div className="min-w-0">
+                                                    <h3
+                                                        className="text-2xl font-bold text-gray-900 mb-2 group-hover:text-orange-600 transition-colors"
+                                                        style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                                                    >
                                                         {post.title}
                                                     </h3>
-                                                    <p className="text-gray-500 font-medium flex items-center gap-2">
+                                                    <p
+                                                        className="text-gray-500 font-medium flex items-center gap-2"
+                                                        style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                                                    >
                                                         by <span className="text-gray-900">{post.authorName}</span>
                                                         <span className="w-1 h-1 bg-gray-300 rounded-full" />
                                                         {post.uploadDate.toLocaleDateString()}
@@ -192,7 +210,17 @@ export function PendingPosts() {
                                             </div>
 
                                             {post.description && (
-                                                <p className="text-gray-600 leading-relaxed mb-6 line-clamp-2">
+                                                <p
+                                                    className="text-gray-600 leading-relaxed mb-6"
+                                                    style={{
+                                                        overflowWrap: 'anywhere',
+                                                        wordBreak: 'break-word',
+                                                        display: '-webkit-box',
+                                                        WebkitLineClamp: 2,
+                                                        WebkitBoxOrient: 'vertical',
+                                                        overflow: 'hidden'
+                                                    }}
+                                                >
                                                     {post.description}
                                                 </p>
                                             )}

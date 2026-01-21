@@ -22,6 +22,7 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
   // Initialize Session
   useEffect(() => {
@@ -37,8 +38,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       } catch (error) {
         localStorage.removeItem(STORAGE_KEY);
         localStorage.removeItem(TOKEN_KEY);
+        setUser(null);
+        setIsAuthenticated(false);
       }
     }
+    setIsAuthReady(true);
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -84,13 +88,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
     localStorage.removeItem(TOKEN_KEY);
   };
 
+  const updateUser = (updates: Partial<User>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...updates };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
+
   const value: AuthContextType = {
     user,
     isAuthenticated,
+    isAuthReady,
     login,
     signup,
     socialLogin,
     logout,
+    updateUser,
   };
 
   return (

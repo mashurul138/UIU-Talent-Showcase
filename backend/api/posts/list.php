@@ -13,6 +13,13 @@ $type = isset($_GET['type']) ? $conn->real_escape_string($_GET['type']) : null;
 $status = isset($_GET['status']) ? $conn->real_escape_string($_GET['status']) : null;
 $limit = isset($_GET['limit']) ? intval($_GET['limit']) : 50;
 
+$columnExists = function ($conn, $table, $column) {
+    $tableSafe = $conn->real_escape_string($table);
+    $columnSafe = $conn->real_escape_string($column);
+    $result = $conn->query("SHOW COLUMNS FROM `$tableSafe` LIKE '$columnSafe'");
+    return $result && $result->num_rows > 0;
+};
+
 
 // Get user ID from token if present (for has_voted check)
 require "../utils/jwt.php";
@@ -25,16 +32,20 @@ if ($auth_token) {
     }
 }
 
+$hasRating = $columnExists($conn, 'votes', 'rating');
+$avgRatingSelect = $hasRating
+    ? "(SELECT COALESCE(AVG(v.rating), 0) FROM votes v WHERE v.post_id = p.id)"
+    : "0";
+$ratingCountSelect = "(SELECT COUNT(*) FROM votes v WHERE v.post_id = p.id)";
+$userRatingSelect = ($current_user_id && $hasRating)
+    ? "(SELECT v.rating FROM votes v WHERE v.post_id = p.id AND v.user_id = $current_user_id LIMIT 1)"
+    : "NULL";
+
 $sql = "SELECT p.*, u.name as author_name, u.role as author_role,
-        (SELECT COUNT(*) FROM votes v WHERE v.post_id = p.id) as vote_count";
-
-if ($current_user_id) {
-    $sql .= ", (SELECT COUNT(*) FROM votes v WHERE v.post_id = p.id AND v.user_id = $current_user_id) as has_voted";
-} else {
-    $sql .= ", 0 as has_voted";
-}
-
-$sql .= " FROM posts p 
+        $avgRatingSelect as avg_rating,
+        $ratingCountSelect as rating_count,
+        $userRatingSelect as user_rating
+        FROM posts p
         JOIN users u ON p.user_id = u.id";
 
 $whereClauses = [];
@@ -83,9 +94,10 @@ if ($result->num_rows > 0) {
             "uploadDate" => $row['created_at'],
             "status" => $row['status'],
             "views" => intval($row['views']),
-            "rating" => 0, // Not implemented yet
-            "votes" => intval($row['vote_count']),
-            "hasVoted" => intval($row['has_voted']) > 0,
+            "rating" => round(floatval($row['avg_rating']), 1),
+            "votes" => intval($row['rating_count']),
+            "hasVoted" => !is_null($row['user_rating']) && floatval($row['user_rating']) > 0,
+            "userRating" => !is_null($row['user_rating']) ? round(floatval($row['user_rating']), 1) : 0,
             "thumbnail" => isset($media[0]) ? $media[0]['file_path'] : "", 
             "media" => $media
         ];

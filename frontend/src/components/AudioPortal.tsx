@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Mic, Star, TrendingUp, Clock, Award, AlertCircle, X, Upload, Search } from 'lucide-react';
+import { Mic, TrendingUp, Clock, Award, AlertCircle, X, Upload, Search } from 'lucide-react';
 import { PortalLeaderboard } from './PortalLeaderboard';
 import { UploadModal } from './UploadModal';
 import { InteractiveModal } from './InteractiveModal';
+import { StarRating } from './StarRating';
 import { useAuth } from '../contexts/AuthContext';
 import { usePosts } from '../contexts/PostContext';
 import { canUpload } from '../utils/permissions';
@@ -11,7 +12,7 @@ import { buildMediaUrl } from '../utils/media';
 
 export function AudioPortal() {
   const { user } = useAuth();
-  const { posts, votePost } = usePosts();
+  const { posts, ratePost } = usePosts();
   const [sortBy, setSortBy] = useState<'latest' | 'trending' | 'top'>('latest');
   const [showWarning, setShowWarning] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -207,17 +208,23 @@ export function AudioPortal() {
 
                   {/* Meta */}
                   <div className="flex items-center justify-between">
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        votePost(audio.id);
+                    <div
+                      className="flex items-center gap-2"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
                       }}
-                      className="flex items-center gap-1 group/vote hover:scale-110 transition-transform z-10 relative"
-                      title={audio.hasVoted ? "Unvote" : "Vote"}
                     >
-                      <Star className={`w-4 h-4 transition-colors ${audio.hasVoted ? 'text-teal-600 fill-teal-600' : 'text-gray-400 group-hover/vote:text-teal-600'}`} />
-                      <span className={`text-sm font-medium ${audio.hasVoted ? 'text-teal-700' : 'text-gray-600'}`}>{audio.votes || 0}</span>
-                    </button>
+                      <StarRating
+                        value={audio.rating || 0}
+                        userValue={audio.userRating || 0}
+                        onChange={(value) => ratePost(audio.id, value)}
+                        size="sm"
+                        colorClass="text-teal-600"
+                      />
+                      <span className="text-xs text-gray-500">{(audio.rating || 0).toFixed(1)}</span>
+                      <span className="text-xs text-gray-400">({audio.votes || 0})</span>
+                    </div>
                     <span className="text-gray-600">{audio.views.toLocaleString()} plays</span>
                   </div>
                 </div>

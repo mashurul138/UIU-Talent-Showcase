@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { usePosts } from '../contexts/PostContext';
@@ -5,11 +6,18 @@ import { RoleBadge } from './auth/RoleBadge';
 import { hasRole } from '../utils/permissions';
 import { LayoutDashboard, Upload, Users, FileText, Trash2, Activity, TrendingUp, Heart, Video, Mic, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import type { Post } from '../types/auth';
+import { PostActionButtons } from './PostActionButtons';
 
 export function Dashboard() {
     const { user } = useAuth();
-    const { posts } = usePosts();
+    const { posts, updatePost, deletePost } = usePosts();
     const navigate = useNavigate();
+    const [editingPost, setEditingPost] = useState<Post | null>(null);
+    const [editTitle, setEditTitle] = useState('');
+    const [editDescription, setEditDescription] = useState('');
+    const [editError, setEditError] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
 
     if (!user) return null;
 
@@ -29,6 +37,57 @@ export function Dashboard() {
         pending: { label: 'Pending', badge: 'bg-yellow-100 text-yellow-700' },
         rejected: { label: 'Rejected', badge: 'bg-red-100 text-red-700' },
     } as const;
+
+    const openEditModal = (post: Post) => {
+        setEditingPost(post);
+        setEditTitle(post.title);
+        setEditDescription(post.description || '');
+        setEditError('');
+    };
+
+    const closeEditModal = () => {
+        setEditingPost(null);
+        setEditTitle('');
+        setEditDescription('');
+        setEditError('');
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editingPost) return;
+        const title = editTitle.trim();
+        if (!title) {
+            setEditError('Title is required.');
+            return;
+        }
+        setIsSaving(true);
+        try {
+            await updatePost(editingPost.id, {
+                title,
+                description: editDescription
+            });
+            closeEditModal();
+        } catch (error) {
+            console.error('Failed to update post', error);
+            setEditError('Failed to update post.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleDelete = async (postId: string) => {
+        if (!window.confirm('Delete this post permanently?')) {
+            return;
+        }
+        try {
+            await deletePost(postId);
+            if (editingPost?.id === postId) {
+                closeEditModal();
+            }
+        } catch (error) {
+            console.error('Failed to delete post', error);
+            window.alert('Failed to delete post.');
+        }
+    };
 
     // Animation variants
     const container = {
@@ -99,7 +158,16 @@ export function Dashboard() {
                     <>
                         <StatCard title="My Uploads" value={`${myPosts.length}`} icon={Upload} color="bg-blue-500" />
                         <StatCard title="Total Views" value={`${myPosts.reduce((sum, post) => sum + (post.views || 0), 0).toLocaleString()}`} icon={TrendingUp} color="bg-orange-500" />
-                        <StatCard title="Avg. Rating" value={`${myPosts.length ? (myPosts.reduce((sum, post) => sum + (post.votes || 0), 0) / myPosts.length).toFixed(1) : '0.0'}`} icon={Heart} color="bg-red-500" />
+                        <StatCard
+                            title="Avg. Rating"
+                            value={`${(() => {
+                                const totalRatings = myPosts.reduce((sum, post) => sum + (post.votes || 0), 0);
+                                const ratingSum = myPosts.reduce((sum, post) => sum + ((post.rating || 0) * (post.votes || 0)), 0);
+                                return totalRatings > 0 ? (ratingSum / totalRatings).toFixed(1) : '0.0';
+                            })()}`}
+                            icon={Heart}
+                            color="bg-red-500"
+                        />
                         <StatCard title="Followers" value="156" icon={Users} color="bg-green-500" />
                     </>
                 )}
@@ -160,6 +228,7 @@ export function Dashboard() {
                                 const type = typeMeta[post.type];
                                 const status = statusMeta[post.status];
                                 const TypeIcon = type.icon;
+                                const allowOwnerActions = post.status === 'approved' || isAdmin;
 
                                 return (
                                     <div key={post.id} className="p-4 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors flex items-center justify-between gap-4">
@@ -178,6 +247,18 @@ export function Dashboard() {
                                             <span className={`text-xs font-medium px-2 py-1 rounded-full ${type.badge}`}>{type.label}</span>
                                             <span className={`text-xs font-medium px-2 py-1 rounded-full ${status.badge}`}>{status.label}</span>
                                             <span className="text-xs text-gray-500">{post.views.toLocaleString()} views</span>
+                                            {allowOwnerActions && (
+                                                <PostActionButtons
+                                                    post={post}
+                                                    onEdit={(postId) => {
+                                                        const target = myPosts.find((item) => item.id === postId);
+                                                        if (target) {
+                                                            openEditModal(target);
+                                                        }
+                                                    }}
+                                                    onDelete={handleDelete}
+                                                />
+                                            )}
                                         </div>
                                     </div>
                                 );
@@ -185,6 +266,60 @@ export function Dashboard() {
                         )}
                     </div>
                 </motion.div>
+            )}
+
+            {editingPost && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-bold text-gray-900">Edit {editingPost.type} post</h3>
+                            <button
+                                onClick={closeEditModal}
+                                className="text-gray-500 hover:text-gray-700"
+                                aria-label="Close edit modal"
+                            >
+                                X
+                            </button>
+                        </div>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                                <input
+                                    value={editTitle}
+                                    onChange={(event) => setEditTitle(event.target.value)}
+                                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                <textarea
+                                    value={editDescription}
+                                    onChange={(event) => setEditDescription(event.target.value)}
+                                    rows={5}
+                                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                />
+                            </div>
+                            {editError && (
+                                <div className="text-sm text-red-600">{editError}</div>
+                            )}
+                        </div>
+                        <div className="mt-6 flex justify-end gap-3">
+                            <button
+                                onClick={closeEditModal}
+                                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSaveEdit}
+                                disabled={isSaving}
+                                className="px-4 py-2 text-sm font-semibold text-white bg-orange-500 rounded-lg hover:bg-orange-600 disabled:opacity-60"
+                            >
+                                {isSaving ? 'Saving...' : 'Save changes'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

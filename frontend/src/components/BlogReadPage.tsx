@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ChevronLeft, Star } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { usePosts } from '../contexts/PostContext';
 import { api } from '../services/api';
 import { buildMediaUrl } from '../utils/media';
+import { StarRating } from './StarRating';
 
 export function BlogReadPage() {
   const { id } = useParams();
-  const { posts, votePost, updatePostViews } = usePosts();
+  const { posts, ratePost, updatePostViews } = usePosts();
   const viewIncrementedRef = useRef<string | null>(null);
 
   const blog = useMemo(() => {
@@ -28,7 +29,7 @@ export function BlogReadPage() {
   }, [id, blog, updatePostViews]);
 
   const getImageUrl = (path?: string) => {
-    if (!path) return 'https://images.unsplash.com/photo-1499750310159-5b5f8ca473aa?w=1600&auto=format&fit=crop';
+    if (!path) return '';
     return buildMediaUrl(path);
   };
 
@@ -64,6 +65,7 @@ export function BlogReadPage() {
     );
   }
 
+  const hasThumbnail = Boolean(blog.thumbnail);
   const content = blog.description || 'No description available for this post.';
   const paragraphs = content.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
 
@@ -77,18 +79,20 @@ export function BlogReadPage() {
       </div>
 
       <div className="bg-white rounded-2xl overflow-hidden shadow-xl border-l-4 border-indigo-600">
-        <div className="w-full h-72 bg-gray-100">
-          <img
-            src={getImageUrl(blog.thumbnail)}
-            alt={blog.title}
-            className="w-full h-full object-cover"
-          />
-        </div>
+        {hasThumbnail && (
+          <div className="relative w-full h-72 bg-gray-100 overflow-hidden">
+            <img
+              src={getImageUrl(blog.thumbnail)}
+              alt={blog.title}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          </div>
+        )}
 
         <div className="p-8 space-y-6">
           <div className="space-y-2">
-            <h1 className="text-3xl font-bold text-gray-900">{blog.title}</h1>
-            <div className="text-gray-500">
+            <h1 className="text-xl font-bold text-gray-900">{blog.title}</h1>
+            <div className="text-sm text-gray-500">
               <span className="font-medium text-gray-800">{blog.authorName}</span>
               <span className="mx-2">•</span>
               <span>{new Date(blog.uploadDate).toLocaleDateString()}</span>
@@ -96,14 +100,17 @@ export function BlogReadPage() {
           </div>
 
           <div className="flex items-center gap-6 text-sm text-gray-600">
-            <button
-              onClick={() => votePost(blog.id)}
-              className="flex items-center gap-1 group/vote hover:scale-110 transition-transform"
-              title={blog.hasVoted ? 'Unvote' : 'Vote'}
-            >
-              <Star className={`w-4 h-4 transition-colors ${blog.hasVoted ? 'text-indigo-600 fill-indigo-600' : 'text-gray-400 group-hover/vote:text-indigo-600'}`} />
-              <span className={`font-medium ${blog.hasVoted ? 'text-indigo-700' : 'text-gray-600'}`}>{blog.votes || 0}</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <StarRating
+                value={blog.rating || 0}
+                userValue={blog.userRating || 0}
+                onChange={(value) => ratePost(blog.id, value)}
+                size="sm"
+                colorClass="text-indigo-600"
+              />
+              <span className="text-xs text-gray-500">{(blog.rating || 0).toFixed(1)}</span>
+              <span className="text-xs text-gray-400">({blog.votes || 0})</span>
+            </div>
             <span>{blog.views.toLocaleString()} reads</span>
             <span>{getReadTime(blog.description)} read</span>
           </div>

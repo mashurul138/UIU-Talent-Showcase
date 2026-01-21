@@ -64,7 +64,11 @@ export const api = {
             const url = type
                 ? `${BASE_URL}/posts/list.php?type=${type}`
                 : `${BASE_URL}/posts/list.php`;
-            const response = await fetch(url);
+            const response = await fetch(url, {
+                headers: {
+                    ...getAuthHeaders() as any,
+                }
+            });
             if (!response.ok) throw new Error('Failed to fetch posts');
             return response.json();
         },
@@ -112,16 +116,31 @@ export const api = {
             }
             return response.json();
         },
-        vote: async (id: string) => {
+        update: async (id: string, payload: { title?: string; description?: string }) => {
+            const response = await fetch(`${BASE_URL}/posts/update.php`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders() as any
+                },
+                body: JSON.stringify({ id, ...payload }),
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || 'Failed to update post');
+            }
+            return response.json();
+        },
+        rate: async (id: string, rating: number) => {
             const response = await fetch(`${BASE_URL}/posts/vote.php`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     ...getAuthHeaders() as any
                 },
-                body: JSON.stringify({ post_id: id }),
+                body: JSON.stringify({ post_id: id, rating }),
             });
-            if (!response.ok) throw new Error('Failed to vote');
+            if (!response.ok) throw new Error('Failed to rate');
             return response.json();
         },
         incrementView: async (id: string) => {
@@ -151,6 +170,36 @@ export const api = {
                 headers: { ...getAuthHeaders() as any }
             });
             if (!response.ok) throw new Error('Failed to fetch user votes');
+            return response.json();
+        }
+    },
+    users: {
+        profile: async () => {
+            const response = await fetch(`${BASE_URL}/users/profile.php`, {
+                headers: { ...getAuthHeaders() as any },
+            });
+            if (!response.ok) throw new Error('Failed to fetch user profile');
+            return response.json();
+        },
+        update: async (payload: {
+            name?: string;
+            email?: string;
+            studentId?: string;
+            avatar?: string;
+            password?: string;
+        }) => {
+            const response = await fetch(`${BASE_URL}/users/update.php`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders() as any
+                },
+                body: JSON.stringify(payload),
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || errorData.message || 'Failed to update profile');
+            }
             return response.json();
         }
     }

@@ -24,10 +24,12 @@ export interface StoredUser extends User {
 export interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  isAuthReady: boolean;
   login: (email: string, password: string) => void;
   signup: (name: string, email: string, password: string, role: UserRole, studentId?: string) => void;
   socialLogin: (provider: 'google' | 'facebook') => Promise<void>;
   logout: () => void;
+  updateUser: (updates: Partial<User>) => void;
 }
 
 export interface Post {
@@ -44,8 +46,9 @@ export interface Post {
     file_size?: number;
   }>;
   rating: number;
-  votes: number; // Dynamic from DB
-  hasVoted: boolean; // Computed for current user
+  votes: number; // Rating count from DB
+  hasVoted: boolean; // Whether current user rated
+  userRating?: number; // Current user's rating value
   views: number;
   uploadDate: Date;
   status: 'pending' | 'approved' | 'rejected';

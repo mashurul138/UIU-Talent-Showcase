@@ -82,22 +82,27 @@ export function LeaderboardProvider({ children }: LeaderboardProviderProps) {
             username: string;
             totalVotes: number;
             totalViews: number;
+            totalRatingSum: number;
             postCount: number;
             portalType: 'video' | 'audio' | 'blog';
         }>();
 
         filteredPosts.forEach(post => {
             const existing = authorStats.get(post.authorId);
+            const ratingCount = post.votes || 0;
+            const ratingAvg = post.rating || 0;
             if (existing) {
                 // Ensure we use votes if available, defaulting to 0
-                existing.totalVotes += (post.votes || 0);
+                existing.totalVotes += ratingCount;
                 existing.totalViews += post.views;
+                existing.totalRatingSum += ratingAvg * ratingCount;
                 existing.postCount += 1;
             } else {
                 authorStats.set(post.authorId, {
                     username: post.authorName,
-                    totalVotes: (post.votes || 0),
+                    totalVotes: ratingCount,
                     totalViews: post.views,
+                    totalRatingSum: ratingAvg * ratingCount,
                     postCount: 1,
                     portalType: post.type,
                 });
@@ -106,8 +111,8 @@ export function LeaderboardProvider({ children }: LeaderboardProviderProps) {
 
         // Convert to leaderboard entries
         const entries: LeaderboardEntry[] = Array.from(authorStats.entries()).map(([userId, stats]) => {
-            // Formula: Total Score = Total Views + (Total Votes * 10)
-            const totalScore = Math.round(stats.totalViews + (stats.totalVotes * 10));
+            // Formula: Total Score = Total Views + (Total Rating Sum * 2)
+            const totalScore = Math.round(stats.totalViews + (stats.totalRatingSum * 2));
             const votes = userVotes[userId] || 0;
             const hasVoted = myVotes[userId] || false;
 

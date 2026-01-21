@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Video, Star, TrendingUp, Clock, Award, AlertCircle, X, Upload, Radio, Play, Search } from 'lucide-react';
+import { Video, TrendingUp, Clock, Award, AlertCircle, X, Upload, Radio, Play, Search } from 'lucide-react';
 import { PortalLeaderboard } from './PortalLeaderboard';
 import { UploadModal } from './UploadModal';
 import { InteractiveModal } from './InteractiveModal';
+import { StarRating } from './StarRating';
 import { useAuth } from '../contexts/AuthContext';
 import { usePosts } from '../contexts/PostContext';
 import { canUpload } from '../utils/permissions';
@@ -13,7 +14,7 @@ import { buildMediaUrl } from '../utils/media';
 
 export function VideoPortal() {
   const { user } = useAuth();
-  const { posts, votePost } = usePosts();
+  const { posts, ratePost } = usePosts();
   const [sortBy, setSortBy] = useState<'latest' | 'trending' | 'top'>('latest');
   const [showWarning, setShowWarning] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -213,17 +214,23 @@ export function VideoPortal() {
 
                 {/* Meta */}
                 <div className="flex items-center justify-between">
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      votePost(video.id);
+                  <div
+                    className="flex items-center gap-2"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
                     }}
-                    className="flex items-center gap-1 group/vote hover:scale-110 transition-transform z-10 relative"
-                    title={video.hasVoted ? "Unvote" : "Vote"}
                   >
-                    <Star className={`w-4 h-4 transition-colors ${video.hasVoted ? 'text-orange-500 fill-orange-500' : 'text-gray-400 group-hover/vote:text-orange-500'}`} />
-                    <span className={`text-sm font-medium ${video.hasVoted ? 'text-orange-600' : 'text-gray-600'}`}>{video.votes || 0}</span>
-                  </button>
+                    <StarRating
+                      value={video.rating || 0}
+                      userValue={video.userRating || 0}
+                      onChange={(value) => ratePost(video.id, value)}
+                      size="sm"
+                      colorClass="text-orange-500"
+                    />
+                    <span className="text-xs text-gray-500">{(video.rating || 0).toFixed(1)}</span>
+                    <span className="text-xs text-gray-400">({video.votes || 0})</span>
+                  </div>
                   <span className="text-gray-600">{video.views.toLocaleString()} views</span>
                 </div>
               </div>

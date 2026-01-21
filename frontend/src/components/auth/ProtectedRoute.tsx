@@ -16,7 +16,15 @@ export function ProtectedRoute({
   minimumRole,
   redirectTo = '/login' 
 }: ProtectedRouteProps) {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isAuthReady } = useAuth();
+
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!isAuthenticated || !user) {
     return <Navigate to={redirectTo} replace />;
@@ -39,7 +47,15 @@ interface PublicRouteProps {
 }
 
 export function PublicRoute({ children, redirectTo = '/' }: PublicRouteProps) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAuthReady } = useAuth();
+
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (isAuthenticated) {
     return <Navigate to={redirectTo} replace />;

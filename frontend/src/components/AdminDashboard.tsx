@@ -2,10 +2,15 @@ import { usePosts } from '../contexts/PostContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Check, X, Clock, FileText, Video, Mic, AlertTriangle } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
+import { buildMediaUrl } from '../utils/media';
 
 export function AdminDashboard() {
     const { user } = useAuth();
     const { getPostsByStatus, approvePost, rejectPost } = usePosts();
+    const getImageUrl = (path?: string) => {
+        if (!path) return 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop';
+        return buildMediaUrl(path);
+    };
 
     // Security Check
     if (!user || user.role !== 'admin') {
@@ -36,31 +41,54 @@ export function AdminDashboard() {
                 </div>
             ) : (
                 <div className="grid gap-6">
-                    {pendingPosts.map((post) => (
-                        <div
-                            key={post.id}
-                            className="bg-white dark:bg-zinc-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-zinc-800 flex flex-col md:flex-row gap-6"
-                        >
-                            {/* Thumbnail */}
-                            <div className="w-full md:w-48 h-32 flex-shrink-0 bg-gray-100 dark:bg-zinc-800 rounded-lg overflow-hidden relative">
-                                <img
-                                    src={post.thumbnail}
-                                    alt={post.title}
-                                    className="w-full h-full object-cover"
-                                />
-                                <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded text-xs font-medium uppercase backdrop-blur-sm">
-                                    {post.type}
-                                </div>
-                            </div>
+                    {pendingPosts.map((post) => {
+                        const hasThumbnail = Boolean(post.thumbnail);
+                        const showThumbnail = post.type !== 'blog' || hasThumbnail;
 
-                            {/* Content */}
-                            <div className="flex-1">
-                                <div className="flex items-start justify-between mb-2">
-                                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">{post.title}</h3>
-                                    <span className="flex items-center gap-1 text-sm text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 px-2 py-1 rounded-md">
-                                        <Clock className="w-3 h-3" /> Pending
-                                    </span>
-                                </div>
+                        return (
+                            <div
+                                key={post.id}
+                                className="bg-white dark:bg-zinc-900 rounded-xl p-6 shadow-sm border border-gray-100 dark:border-zinc-800 flex flex-col md:flex-row gap-6"
+                            >
+                                {/* Thumbnail */}
+                                {showThumbnail && (
+                                    <div className="w-full md:w-48 h-32 flex-shrink-0 bg-gray-100 dark:bg-zinc-800 rounded-lg overflow-hidden relative">
+                                        <img
+                                            src={getImageUrl(post.thumbnail)}
+                                            alt={post.title}
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                const target = e.target as HTMLImageElement;
+                                                target.src = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop';
+                                            }}
+                                        />
+                                        <div className="absolute top-2 right-2 bg-black/60 text-white px-2 py-1 rounded text-xs font-medium uppercase backdrop-blur-sm">
+                                            {post.type}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Content */}
+                                <div className="flex-1 min-w-0">
+                                    {!showThumbnail && (
+                                        <div className="mb-2">
+                                            <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold uppercase bg-gray-100 text-gray-700 dark:bg-zinc-800 dark:text-gray-200">
+                                                <FileText className="w-3 h-3" />
+                                                {post.type}
+                                            </span>
+                                        </div>
+                                    )}
+                                    <div className="flex items-start justify-between mb-2">
+                                        <h3
+                                            className="text-xl font-bold text-gray-900 dark:text-white"
+                                            style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                                        >
+                                            {post.title}
+                                        </h3>
+                                        <span className="flex items-center gap-1 text-sm text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 px-2 py-1 rounded-md">
+                                            <Clock className="w-3 h-3" /> Pending
+                                        </span>
+                                    </div>
 
                                 <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mb-4">
                                     <span className="flex items-center gap-1">
@@ -79,7 +107,17 @@ export function AdminDashboard() {
                                     )}
                                 </div>
 
-                                <p className="text-gray-600 dark:text-gray-300 mb-4 line-clamp-2">
+                                <p
+                                    className="text-gray-600 dark:text-gray-300 mb-4"
+                                    style={{
+                                        overflowWrap: 'anywhere',
+                                        wordBreak: 'break-word',
+                                        display: '-webkit-box',
+                                        WebkitLineClamp: 2,
+                                        WebkitBoxOrient: 'vertical',
+                                        overflow: 'hidden'
+                                    }}
+                                >
                                     {post.description || 'No description provided.'}
                                 </p>
 
@@ -100,9 +138,10 @@ export function AdminDashboard() {
                                         Reject
                                     </button>
                                 </div>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
         </div>

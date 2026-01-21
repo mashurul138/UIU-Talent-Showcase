@@ -1,14 +1,16 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Post } from '../types/auth';
 import { api } from '../services/api';
+import { useAuth } from './AuthContext';
 
 interface PostContextType {
     posts: Post[];
-    addPost: (post: Omit<Post, 'id' | 'uploadDate' | 'status' | 'views' | 'rating' | 'votes' | 'hasVoted'> & { file: File }) => Promise<void>;
+    addPost: (post: Omit<Post, 'id' | 'uploadDate' | 'status' | 'views' | 'rating' | 'votes' | 'hasVoted' | 'userRating'> & { file?: File | null }) => Promise<void>;
     approvePost: (id: string) => void;
     rejectPost: (id: string) => void;
+    updatePost: (id: string, updates: { title?: string; description?: string }) => Promise<void>;
     deletePost: (id: string) => Promise<void>;
-    votePost: (id: string) => Promise<void>;
+    ratePost: (id: string, rating: number) => Promise<void>;
     getPostsByStatus: (status: Post['status']) => Post[];
     getPostsByType: (type: Post['type']) => Post[];
     updatePostViews: (postId: string, views: number) => void;
@@ -30,6 +32,7 @@ interface PostProviderProps {
 
 export function PostProvider({ children }: PostProviderProps) {
     const [posts, setPosts] = useState<Post[]>([]);
+    const { isAuthenticated } = useAuth();
 
     const fetchPosts = async () => {
         try {
@@ -40,6 +43,10 @@ export function PostProvider({ children }: PostProviderProps) {
                 const mappedPosts = fetchedPosts.map((p: any) => ({
                     ...p,
                     uploadDate: new Date(p.uploadDate),
+                    rating: typeof p.rating === 'number' ? p.rating : parseFloat(p.rating) || 0,
+                    votes: typeof p.votes === 'number' ? p.votes : parseInt(p.votes, 10) || 0,
+                    userRating: typeof p.userRating === 'number' ? p.userRating : parseFloat(p.userRating) || 0,
+                    hasVoted: Boolean(p.userRating && parseFloat(p.userRating) > 0)
                 }));
                 setPosts(mappedPosts);
             } else {
@@ -53,17 +60,26 @@ export function PostProvider({ children }: PostProviderProps) {
     };
 
     useEffect(() => {
+        if (!isAuthenticated) {
+            setPosts([]);
+            return;
+        }
         fetchPosts();
-    }, []);
+    }, [isAuthenticated]);
 
-    const addPost = async (newPostData: Omit<Post, 'id' | 'uploadDate' | 'status' | 'views' | 'rating' | 'votes' | 'hasVoted'> & { file: File }) => {
+    const addPost = async (newPostData: Omit<Post, 'id' | 'uploadDate' | 'status' | 'views' | 'rating' | 'votes' | 'hasVoted' | 'userRating'> & { file?: File | null }) => {
         try {
+            if (!newPostData.file && newPostData.type !== 'blog') {
+                throw new Error('Media file is required for video and audio uploads.');
+            }
             const formData = new FormData();
             formData.append('title', newPostData.title);
             formData.append('description', newPostData.description || '');
             formData.append('type', newPostData.type);
             formData.append('duration', newPostData.duration || '');
-            formData.append('file', newPostData.file);
+            if (newPostData.file) {
+                formData.append('file', newPostData.file);
+            }
 
             await api.posts.create(formData);
             await fetchPosts(); // Refresh list
@@ -105,21 +121,33 @@ export function PostProvider({ children }: PostProviderProps) {
         }
     };
 
-    const votePost = async (id: string) => {
+    const updatePost = async (id: string, updates: { title?: string; description?: string }) => {
         try {
-            const result = await api.posts.vote(id);
+            await api.posts.update(id, updates);
+            await fetchPosts();
+        } catch (error) {
+            console.error("Error updating post", error);
+            throw error;
+        }
+    };
+
+    const ratePost = async (id: string, rating: number) => {
+        try {
+            const result = await api.posts.rate(id, rating);
             setPosts(prev => prev.map(post => {
                 if (post.id === id) {
                     return {
                         ...post,
-                        votes: result.votes, // Use server returned count
-                        hasVoted: result.action === 'voted'
+                        rating: typeof result.rating === 'number' ? result.rating : parseFloat(result.rating) || 0,
+                        votes: typeof result.ratingCount === 'number' ? result.ratingCount : parseInt(result.ratingCount, 10) || 0,
+                        userRating: typeof result.userRating === 'number' ? result.userRating : parseFloat(result.userRating) || rating,
+                        hasVoted: true
                     };
                 }
                 return post;
             }));
         } catch (error) {
-            console.error("Error voting for post", error);
+            console.error("Error rating post", error);
         }
     };
 
@@ -137,8 +165,9 @@ export function PostProvider({ children }: PostProviderProps) {
             addPost,
             approvePost,
             rejectPost,
+            updatePost,
             deletePost,
-            votePost,
+            ratePost,
             getPostsByStatus,
             getPostsByType,
             updatePostViews: (postId: string, views: number) => {

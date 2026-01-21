@@ -1,16 +1,17 @@
 import { useState, useRef, useEffect, useLayoutEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Play, Pause, Volume2, VolumeX, Maximize, Settings, SkipBack, SkipForward, ChevronLeft, Star } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, Settings, SkipBack, SkipForward, ChevronLeft } from 'lucide-react';
 import { usePosts } from '../contexts/PostContext';
 import { useVideoPlayer } from '../contexts/VideoPlayerContext';
 import { api } from '../services/api';
 import { buildMediaUrl } from '../utils/media';
+import { StarRating } from './StarRating';
 
 type QualityOption = '1080p' | '720p' | '480p' | '360p';
 
 export function VideoWatchPage() {
     const { id } = useParams();
-    const { posts, updatePostViews } = usePosts();
+    const { posts, ratePost, updatePostViews } = usePosts();
     const viewIncrementedRef = useRef<string | null>(null);
 
     // Derive video directly to avoid first-render null state
@@ -337,9 +338,16 @@ export function VideoWatchPage() {
                                 </div>
                             </div>
                             <div className="flex items-center gap-6">
-                                <div className="flex items-center gap-1 text-orange-500">
-                                    <Star className="w-5 h-5 fill-current" />
-                                    <span className="font-bold">{video.votes}</span>
+                                <div className="flex items-center gap-2">
+                                    <StarRating
+                                        value={video.rating || 0}
+                                        userValue={video.userRating || 0}
+                                        onChange={(value) => ratePost(video.id, value)}
+                                        size="sm"
+                                        colorClass="text-orange-500"
+                                    />
+                                    <span className="text-xs text-gray-500">{(video.rating || 0).toFixed(1)}</span>
+                                    <span className="text-xs text-gray-400">({video.votes || 0})</span>
                                 </div>
                                 <div className="text-gray-500">{video.views.toLocaleString()} views</div>
                             </div>

@@ -5,10 +5,11 @@ import { usePosts } from '../contexts/PostContext';
 import { useAudioPlayer } from '../contexts/AudioPlayerContext';
 import { api } from '../services/api';
 import { buildMediaUrl } from '../utils/media';
+import { StarRating } from './StarRating';
 
 export function AudioListenPage() {
     const { id } = useParams();
-    const { posts, updatePostViews } = usePosts();
+    const { posts, ratePost, updatePostViews } = usePosts();
     const viewIncrementedRef = useRef<string | null>(null);
 
     // Derive audio directly to avoid first-render null state
@@ -188,7 +189,19 @@ export function AudioListenPage() {
 
                     <div className="flex-1 text-center md:text-left">
                         <h1 className="text-3xl md:text-5xl font-bold mb-2 tracking-tight truncate">{audio.title}</h1>
-                        <p className="text-xl text-gray-400 font-medium mb-6">{audio.authorName}</p>
+                        <p className="text-xl text-gray-400 font-medium mb-2">{audio.authorName}</p>
+                        <div className="flex items-center justify-center md:justify-start gap-2 mb-6 text-sm text-gray-400">
+                            <StarRating
+                                value={audio.rating || 0}
+                                userValue={audio.userRating || 0}
+                                onChange={(value) => ratePost(audio.id, value)}
+                                size="sm"
+                                colorClass="text-green-500"
+                                inactiveColorClass="text-gray-600"
+                            />
+                            <span className="text-xs text-gray-400">{(audio.rating || 0).toFixed(1)}</span>
+                            <span className="text-xs text-gray-500">({audio.votes || 0})</span>
+                        </div>
 
                         <div className="flex items-center justify-center md:justify-start gap-4">
                             <button

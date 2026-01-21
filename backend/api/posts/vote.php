@@ -12,12 +12,28 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 
 $input = json_decode(file_get_contents("php://input"), true);
 $post_id = isset($input['post_id']) ? intval($input['post_id']) : 0;
+$rating = isset($input['rating']) ? floatval($input['rating']) : null;
 
 if ($post_id <= 0) {
     http_response_code(400);
     echo json_encode(["error" => "Invalid post ID"]);
     exit();
 }
+
+if ($rating === null) {
+    http_response_code(400);
+    echo json_encode(["error" => "Rating is required"]);
+    exit();
+}
+
+$scaled = $rating * 2;
+if ($rating < 0.5 || $rating > 5 || abs($scaled - round($scaled)) > 0.001) {
+    http_response_code(400);
+    echo json_encode(["error" => "Rating must be between 0.5 and 5 in 0.5 increments"]);
+    exit();
+}
+
+$rating = round($rating * 2) / 2;
 
 // Verify Token
 $auth_data = JWT::get_bearer_token();
@@ -34,40 +50,42 @@ if (!$user_data) {
 
 $user_id = $user_data['user_id'];
 
-// Check if vote exists
-$checkSql = "SELECT id FROM votes WHERE user_id = $user_id AND post_id = $post_id";
-$checkResult = $conn->query($checkSql);
-
-if ($checkResult->num_rows > 0) {
-    // Unlike (delete vote)
-    $deleteSql = "DELETE FROM votes WHERE user_id = $user_id AND post_id = $post_id";
-    if ($conn->query($deleteSql) === TRUE) {
-        $action = "unvoted";
-    } else {
-        http_response_code(500);
-        echo json_encode(["error" => "Error removing vote"]);
-        exit();
-    }
-} else {
-    // Like (insert vote)
-    $insertSql = "INSERT INTO votes (user_id, post_id) VALUES ('$user_id', '$post_id')";
-    if ($conn->query($insertSql) === TRUE) {
-        $action = "voted";
-    } else {
-        http_response_code(500);
-        echo json_encode(["error" => "Error adding vote"]);
-        exit();
-    }
+// Ensure rating column exists
+$ratingColumnResult = $conn->query("SHOW COLUMNS FROM votes LIKE 'rating'");
+if (!$ratingColumnResult || $ratingColumnResult->num_rows === 0) {
+    http_response_code(500);
+    echo json_encode(["error" => "Rating column missing. Add rating DECIMAL(3,1) to votes table."]);
+    exit();
 }
 
-// Get new vote count
-$countSql = "SELECT COUNT(*) as vote_count FROM votes WHERE post_id = $post_id";
-$countResult = $conn->query($countSql);
-$count = 0;
-if ($countResult->num_rows > 0) {
-    $row = $countResult->fetch_assoc();
-    $count = intval($row['vote_count']);
+$ratingValue = $conn->real_escape_string(number_format($rating, 1, '.', ''));
+$upsertSql = "
+    INSERT INTO votes (user_id, post_id, rating)
+    VALUES ($user_id, $post_id, $ratingValue)
+    ON DUPLICATE KEY UPDATE rating = VALUES(rating)
+";
+
+if ($conn->query($upsertSql) !== TRUE) {
+    http_response_code(500);
+    echo json_encode(["error" => "Error saving rating"]);
+    exit();
 }
 
-echo json_encode(["message" => "Success", "action" => $action, "votes" => $count]);
+// Get updated rating stats
+$statsSql = "SELECT COUNT(*) as rating_count, COALESCE(AVG(rating), 0) as avg_rating FROM votes WHERE post_id = $post_id";
+$statsResult = $conn->query($statsSql);
+$ratingCount = 0;
+$avgRating = 0.0;
+if ($statsResult && $statsResult->num_rows > 0) {
+    $row = $statsResult->fetch_assoc();
+    $ratingCount = intval($row['rating_count']);
+    $avgRating = round(floatval($row['avg_rating']), 1);
+}
+
+echo json_encode([
+    "message" => "Success",
+    "rating" => $avgRating,
+    "ratingCount" => $ratingCount,
+    "userRating" => $rating
+]);
 ?>

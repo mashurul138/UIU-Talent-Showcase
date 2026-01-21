@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Camera, Mic, PenTool, CheckCircle2, AlertCircle } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { usePosts } from '../contexts/PostContext';
 
 interface InteractiveModalProps {
     isOpen: boolean;
@@ -10,13 +12,28 @@ interface InteractiveModalProps {
 export function InteractiveModal({ isOpen, onClose, type }: InteractiveModalProps) {
     const [stream, setStream] = useState<MediaStream | null>(null);
     const [error, setError] = useState<string | null>(null);
-    const [blogContent, setBlogContent] = useState('');
+    const [blogTitle, setBlogTitle] = useState('');
+    const [blogStory, setBlogStory] = useState('');
+    const [blogImage, setBlogImage] = useState<File | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const activeStreamRef = useRef<MediaStream | null>(null);
+    const { user } = useAuth();
+    const { addPost } = usePosts();
 
     useEffect(() => {
         if (!isOpen) {
             stopMedia();
+            return;
+        }
+
+        if (type === 'blog') {
+            setBlogTitle('');
+            setBlogStory('');
+            setBlogImage(null);
+            setIsSubmitting(false);
+            setSubmitError(null);
             return;
         }
 
@@ -87,6 +104,42 @@ export function InteractiveModal({ isOpen, onClose, type }: InteractiveModalProp
     const handleClose = () => {
         stopMedia();
         onClose();
+    };
+
+    const handlePublish = async () => {
+        if (!user) {
+            setSubmitError('Please log in to publish your blog.');
+            return;
+        }
+
+        const title = blogTitle.trim();
+        const story = blogStory.trim();
+        if (!title || !story) {
+            setSubmitError('Title and story are required.');
+            return;
+        }
+
+        setIsSubmitting(true);
+        setSubmitError(null);
+
+        try {
+            await addPost({
+                title,
+                description: story,
+                type: 'blog',
+                authorId: user.id,
+                authorName: user.name,
+                authorRole: user.role,
+                duration: '',
+                file: blogImage
+            });
+            setIsSubmitting(false);
+            onClose();
+        } catch (err: any) {
+            console.error('Failed to publish blog', err);
+            setSubmitError(err?.message || 'Failed to publish blog. Please try again.');
+            setIsSubmitting(false);
+        }
     };
 
     if (!isOpen) return null;
@@ -216,15 +269,54 @@ export function InteractiveModal({ isOpen, onClose, type }: InteractiveModalProp
 
                             {type === 'blog' && (
                                 <div className="space-y-4">
-                                    <textarea
-                                        autoFocus
-                                        placeholder="Start typing your story here..."
-                                        className="w-full h-64 p-6 bg-gray-50 dark:bg-zinc-800 rounded-2xl border-none focus:ring-2 focus:ring-indigo-600 dark:text-white dark:placeholder-gray-500 text-lg resize-none"
-                                        value={blogContent}
-                                        onChange={(e) => setBlogContent(e.target.value)}
-                                    />
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                            Title
+                                        </label>
+                                        <input
+                                            type="text"
+                                            autoFocus
+                                            value={blogTitle}
+                                            onChange={(e) => setBlogTitle(e.target.value)}
+                                            className="w-full px-4 py-3 bg-gray-50 dark:bg-zinc-800 rounded-xl border-none focus:ring-2 focus:ring-indigo-600 dark:text-white dark:placeholder-gray-500"
+                                            placeholder="Give your story a title..."
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                            Story
+                                        </label>
+                                        <textarea
+                                            placeholder="Start typing your story here..."
+                                            className="w-full h-56 p-6 bg-gray-50 dark:bg-zinc-800 rounded-2xl border-none focus:ring-2 focus:ring-indigo-600 dark:text-white dark:placeholder-gray-500 text-lg resize-none"
+                                            value={blogStory}
+                                            onChange={(e) => setBlogStory(e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                            Header Image (optional)
+                                        </label>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={(e) => {
+                                                const selectedFile = e.target.files ? e.target.files[0] : null;
+                                                setBlogImage(selectedFile);
+                                            }}
+                                            className="w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 focus:ring-2 focus:ring-indigo-600 focus:border-transparent outline-none transition-all"
+                                        />
+                                        {blogImage && (
+                                            <p className="text-xs text-gray-500 mt-2">{blogImage.name}</p>
+                                        )}
+                                    </div>
+                                    {submitError && (
+                                        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/50 rounded-xl px-4 py-3 text-sm text-red-700 dark:text-red-300">
+                                            {submitError}
+                                        </div>
+                                    )}
                                     <div className="flex justify-between items-center text-sm text-gray-500">
-                                        <span>{blogContent.length} characters</span>
+                                        <span>{blogStory.length} characters</span>
                                         <span className="flex items-center gap-1">
                                             <CheckCircle2 className="w-4 h-4 text-green-500" />
                                             Auto-saved
@@ -245,7 +337,10 @@ export function InteractiveModal({ isOpen, onClose, type }: InteractiveModalProp
                         Cancel
                     </button>
                     <button
-                        disabled={!stream && type !== 'blog' || (type === 'blog' && !blogContent.trim())}
+                        onClick={type === 'blog' ? handlePublish : undefined}
+                        disabled={type === 'blog'
+                            ? isSubmitting || !blogTitle.trim() || !blogStory.trim()
+                            : !stream}
                         className={`px-6 py-1.5 font-bold transition-all transform rounded-lg active:scale-90 disabled:opacity-50 disabled:cursor-not-allowed ${type === 'video' ? 'text-orange-600 hover:bg-orange-50' :
                             type === 'audio' ? 'text-teal-600 hover:bg-teal-50' :
                                 'text-indigo-600 hover:bg-indigo-50'
@@ -253,7 +348,7 @@ export function InteractiveModal({ isOpen, onClose, type }: InteractiveModalProp
                     >
                         {type === 'video' ? 'Start Streaming' :
                             type === 'audio' ? 'Start Recording' :
-                                'Publish Blog'}
+                                isSubmitting ? 'Publishing...' : 'Publish Blog'}
                     </button>
                 </div>
             </div>
